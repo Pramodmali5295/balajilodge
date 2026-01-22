@@ -1,4 +1,4 @@
-import { BedDouble, Users, CheckCircle, Sparkles, TrendingUp, ChevronRight, Calendar, DollarSign, LogIn, LogOut, CreditCard, PieChart } from 'lucide-react';
+import { BedDouble, Users, CheckCircle, Sparkles, TrendingUp, Calendar, DollarSign, LogIn, LogOut, CreditCard } from 'lucide-react';
 import { Link } from 'react-router-dom'; // Assuming Link is from react-router-dom
 import React, { useMemo } from 'react'; // Assuming React and useMemo are imported
 import { useAppContext } from '../context/AppContext'; // Assuming useAppContext is imported

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Bell, X, User, BedDouble, CalendarClock } from 'lucide-react';
+import { Bell, X, BedDouble, CalendarClock } from 'lucide-react';
 
 const CheckoutNotifier = () => {
   const { checkoutAlerts, dismissAlert, rooms, customers } = useAppContext();

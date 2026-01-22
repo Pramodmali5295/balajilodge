@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Search,  BedDouble, PieChart, CheckCircle2, Edit3, Trash2, Shield, Filter, Download, X, User } from 'lucide-react';
+import { Plus, Search,  BedDouble, PieChart, CheckCircle2, Edit3, Trash2, Shield, Filter, X, User } from 'lucide-react';
 
 const Rooms = () => {
   const { rooms, setRooms, allocations, customers } = useAppContext();

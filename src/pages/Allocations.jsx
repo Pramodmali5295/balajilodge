@@ -2,8 +2,8 @@
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore'; 
-import { CalendarPlus, Calendar, User, BedDouble, CheckCircle, Clock, Phone, MapPin, FileText, History, Search, Users, Trash2, X, Sparkles, Plus, Eye, Edit3, LogOut, CreditCard, Printer } from 'lucide-react';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firestore'; 
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard } from 'lucide-react';
 
 const Allocations = () => {
   const { rooms, employees, customers, allocations } = useAppContext();
