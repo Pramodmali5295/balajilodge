@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BedDouble, Users, UserCheck, CalendarRange, LogOut } from 'lucide-react';
+import { LayoutDashboard, BedDouble, Users, UserCheck, CalendarRange } from 'lucide-react';
 
 const Sidebar = () => {
   const navItems = [
