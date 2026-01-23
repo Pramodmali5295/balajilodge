@@ -128,7 +128,7 @@ export const AppProvider = ({ children }) => {
     }, 60000); 
 
     return () => clearInterval(interval);
-  }, [allocations, loading]);
+  }, [allocations, loading, dismissedAlerts]);
 
   const value = {
     rooms,

@@ -6,7 +6,7 @@ import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { UserCheck, Search, Users, Download, X, Clock, Trash2, Edit3, Phone, MapPin, FileText, Eye, Calendar, History } from 'lucide-react';
 
 const Customers = () => {
-  const { customers, setCustomers, allocations, rooms, employees } = useAppContext();
+  const { customers, allocations, rooms } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
@@ -32,7 +32,6 @@ const Allocations = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRoomType, setSelectedRoomType] = useState('');
-  const categoryRef = useRef(null);
   const [allocationSearch, setAllocationSearch] = useState('');
   const [statusTab, setStatusTab] = useState('Live');
   const [viewingAllocation, setViewingAllocation] = useState(null);
@@ -75,28 +74,9 @@ const Allocations = () => {
 
 
   // Helpers
-  const getCustomerName = (id) => customers.find(c => String(c.id) === String(id))?.name || 'Unknown';
-  const getRoomNumber = (id) => rooms.find(r => String(r.id) === String(id))?.roomNumber || 'Unknown';
-  const getRoomType = (id) => rooms.find(r => String(r.id) === String(id))?.type || 'Unknown';
+  const getCustomerName = useCallback((id) => customers.find(c => String(c.id) === String(id))?.name || 'Unknown', [customers]);
+  const getRoomNumber = useCallback((id) => rooms.find(r => String(r.id) === String(id))?.roomNumber || 'Unknown', [rooms]);
   const getEmployeeName = (id) => employees.find(e => String(e.id) === String(id))?.name || 'Unknown';
-  
-  const getAssignedStaffForRoom = (roomNum) => {
-    return employees.find(emp => emp.assignedRooms && emp.assignedRooms.includes(roomNum));
-  };
-
-  const getFloorLabel = (roomNum) => {
-    const num = parseInt(roomNum);
-    if (isNaN(num)) return 'Other';
-    const series = Math.floor(num / 100);
-    switch(series) {
-      case 1: return 'Ground Floor';
-      case 2: return 'First Floor';
-      case 3: return 'Second Floor';
-      case 4: return 'Third Floor';
-      case 5: return 'Fourth Floor';
-      default: return `${series}00 Series`;
-    }
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -143,7 +123,7 @@ const Allocations = () => {
       
       return matchesSearch && matchesTab;
     }).sort((a, b) => new Date(b.checkIn || 0) - new Date(a.checkIn || 0));
-  }, [allocations, allocationSearch, statusTab, customers, rooms]);
+  }, [allocations, allocationSearch, statusTab, getCustomerName, getRoomNumber]);
 
   // --- Handlers ---
   const handleChange = (e) => {
