@@ -86,6 +86,11 @@ const Dashboard = () => {
       return acc;
     }, {});
 
+    // Add Pending Collection if any
+    if (todayPending > 0) {
+      paymentBreakdown['Pending'] = todayPending;
+    }
+
     // Occupancy rate
     const occupancyRate = rooms.length > 0 ? ((stats.occupied / rooms.length) * 100).toFixed(1) : 0;
 
@@ -238,34 +243,25 @@ const Dashboard = () => {
                 <CreditCard size={12} className="text-white/80" />
                 <h3 className="text-[10px] font-black text-white uppercase tracking-wider">Payment Breakdown</h3>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {Object.entries(dailyReport.paymentBreakdown).map(([type, amount]) => (
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(dailyReport.paymentBreakdown)
+                  .sort(([a], [b]) => {
+                    // Sort Cash first, then Pending, then others
+                    if (a === 'Cash') return -1;
+                    if (b === 'Cash') return 1;
+                    if (a === 'Pending') return -1;
+                    if (b === 'Pending') return 1;
+                    return a.localeCompare(b);
+                  })
+                  .map(([type, amount]) => (
                   <div key={type} className="bg-white/5 rounded-md p-2 border border-white/10">
-                    <p className="text-[9px] font-bold text-white/60 uppercase tracking-wide mb-0.5">{type}</p>
+                    <p className="text-[9px] font-bold text-white/60 uppercase tracking-wide mb-0.5">
+                      {type === 'Pending' ? 'Pending Collection' : type}
+                    </p>
                     <p className="text-base font-black text-white">₹{amount.toLocaleString('en-IN')}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pending Amount Alert */}
-        {dailyReport.pending > 0 && (
-          <div className="px-3 pb-3">
-            <div className="bg-amber-500/20 backdrop-blur-sm rounded-lg p-3 border border-amber-400/30 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-amber-500/30 rounded-md">
-                  <TrendingUp size={14} className="text-amber-200" />
-                </div>
-                <div>
-                  <p className="text-[9px] font-bold text-amber-100 uppercase tracking-wide">Pending Collection</p>
-                  <p className="text-lg font-black text-white">₹{dailyReport.pending.toLocaleString('en-IN')}</p>
-                </div>
-              </div>
-              <Link to="/allocations" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-md text-[9px] font-black text-white uppercase tracking-wider transition-all border border-white/20">
-                View
-              </Link>
             </div>
           </div>
         )}
