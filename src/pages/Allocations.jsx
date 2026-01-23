@@ -522,7 +522,7 @@ const Allocations = () => {
 
       {/* Table Container */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-         <div className="overflow-y-auto flex-1 custom-scrollbar">
+         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
            <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-400 text-[10px] uppercase tracking-wider font-bold">
                  <tr>
@@ -656,7 +656,7 @@ const Allocations = () => {
 
       {/* Check-In Drawer */}
       {showCheckInModal && createPortal(
-         <div className="fixed inset-0 z-[60] md:left-64 bg-white animate-fade-in">
+         <div className="fixed inset-0 z-[60] bg-white animate-fade-in">
             <div className="bg-white w-full h-full flex flex-col overflow-hidden animate-slide-up relative my-0">
                {/* Header */}
                <div className="px-6 py-4 bg-indigo-600 text-white flex justify-between items-center shrink-0">

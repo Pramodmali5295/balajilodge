@@ -311,7 +311,7 @@ const Employees = () => {
 
       {/* Employee Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-        <div className="overflow-y-auto flex-1 custom-scrollbar">
+        <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                <tr>
@@ -505,7 +505,7 @@ const Employees = () => {
       `}</style>
       {/* Add Employee Modal */}
       {showForm && createPortal(
-        <div className="fixed inset-0 z-50 md:left-64 bg-white animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-white animate-fade-in">
           <div className="bg-white w-full h-full flex flex-col overflow-hidden animate-slide-up relative my-0">
             <div className="bg-blue-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
                <div>

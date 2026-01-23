@@ -312,7 +312,7 @@ const Rooms = () => {
 
       {/* Add/Edit Room Modal */}
       {showForm && createPortal(
-        <div className="fixed inset-0 z-50 md:left-64 bg-white animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-white animate-fade-in">
           <div className="bg-white w-full h-full flex flex-col overflow-hidden animate-slide-up">
             <div className="bg-indigo-600 p-6 text-white flex justify-between items-center shrink-0">
                <div>
