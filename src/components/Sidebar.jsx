@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BedDouble, Users, UserCheck, CalendarRange, X, CalendarClock, CheckSquare, Clock } from 'lucide-react';
+import { LayoutDashboard, BedDouble, Users, UserCheck, X, CalendarClock, CheckSquare, Clock } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
