@@ -113,7 +113,7 @@ const Customers = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Name', 'Phone', 'ID Proof Type', 'ID Number', 'Address', 'Customer Type', 'Total Visits', 'Total Revenue (Base)', 'Total GST (12%)', 'Total Amount', 'Total Paid', 'Payment Methods Used', 'First Registered', 'Last Visit'];
+    const headers = ['Name', 'Phone', 'ID Proof Type', 'ID Number', 'Address', 'Customer Type', 'Total Visits', 'Total Revenue (Base)', 'Total GST (12%)', 'Total Amount', 'Total Paid', 'Payment Methods Used', 'First Registered', 'Last Visit', 'Register Nos', 'Booking IDs'];
     
     const rows = filteredCustomers.map(c => {
        // Calculate visits stats
@@ -138,6 +138,10 @@ const Customers = () => {
        } else {
           idNumber = c.idProof || '';
        }
+
+       // Get Registration Numbers and Booking IDs
+       const regNos = [...new Set(customerStays.map(s => s.registrationNumber).filter(Boolean))].join(' | ');
+       const bookingIds = [...new Set(customerStays.map(s => s.externalBookingId).filter(Boolean))].join(' | ');
 
        // Calculate financial totals
        const totalRevenue = customerStays.reduce((sum, stay) => sum + (Number(stay.price) || 0), 0);
@@ -174,7 +178,9 @@ const Customers = () => {
           totalPaid.toFixed(2),
           escapeCsv(paymentMethods),
           registered,
-          lastVisit
+          lastVisit,
+          escapeCsv(regNos),
+          escapeCsv(bookingIds)
        ];
     });
 
@@ -514,11 +520,30 @@ const Customers = () => {
                                                     <span className="font-bold text-gray-800">{stay.actualCheckOut ? new Date(stay.actualCheckOut).toLocaleString() : new Date(stay.checkOut).toLocaleDateString()}</span>
                                                  </div>
                                              </div>
+                                             
+                                             <div className="flex gap-2 mb-3">
+                                                {stay.registrationNumber && (
+                                                   <span className="inline-block px-2 py-1 bg-gray-100 rounded text-[10px] font-bold text-gray-600 border border-gray-200">
+                                                      Reg: {stay.registrationNumber}
+                                                   </span>
+                                                )}
+                                                {stay.externalBookingId && (
+                                                   <span className="inline-block px-2 py-1 bg-indigo-50 rounded text-[10px] font-bold text-indigo-600 border border-indigo-100">
+                                                      ID: {stay.externalBookingId}
+                                                   </span>
+                                                )}
+                                             </div>
 
                                               {(stay.price) && (
-                                                <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-600">
-                                                   <span>Total: <span className="font-bold text-indigo-600">₹{((Number(stay.price)||0)*1.12).toLocaleString('en-IN', {maximumFractionDigits:0})}</span></span>
-                                                   <span>Paid: <span className="font-bold text-emerald-600">₹{(Number(stay.advanceAmount)||0).toLocaleString('en-IN', {maximumFractionDigits:0})}</span></span>
+                                                <div className="flex flex-col gap-1 pt-2 border-t border-gray-100 text-xs text-gray-600">
+                                                   <div className="flex justify-between">
+                                                      <span>Total: <span className="font-bold text-indigo-600">₹{((Number(stay.price)||0)).toLocaleString('en-IN')}</span></span>
+                                                      <span>Paid: <span className="font-bold text-emerald-600">₹{(Number(stay.advanceAmount)||0).toLocaleString('en-IN')}</span></span>
+                                                   </div>
+                                                   <div className="flex justify-between text-[10px] text-gray-400">
+                                                      <span>via {stay.paymentType || 'Cash'}</span>
+                                                      {stay.narration && <span className="italic truncate max-w-[150px]" title={stay.narration}>{stay.narration}</span>}
+                                                   </div>
                                                 </div>
                                               )}
                                          </div>

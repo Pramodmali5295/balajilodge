@@ -39,6 +39,9 @@ function App() {
                 <Route path="/employees" element={<Employees />} />
 
                 <Route path="/allocations" element={<Allocations />} />
+                <Route path="/add-booking" element={<Allocations />} />
+                <Route path="/pending" element={<Allocations />} />
+                <Route path="/completed" element={<Allocations />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

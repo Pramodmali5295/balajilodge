@@ -1,9 +1,10 @@
 ﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firestore'; 
-import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard } from 'lucide-react';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore'; 
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer } from 'lucide-react';
 
 const Allocations = () => {
   const { rooms, employees, customers, allocations } = useAppContext();
@@ -14,26 +15,68 @@ const Allocations = () => {
   const [formData, setFormData] = useState({
     guestName: '',
     guestPhone: '',
-    guestIdProofType: 'Aadhar Card',
+    guestIdProofType: 'PAN Card',
     guestIdNumber: '',
     guestAddress: '',
     customerType: 'New',
     roomIds: [],
-    checkIn: new Date().toISOString().slice(0, 16),
-    checkOut: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
+    checkIn: (() => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    })(),
+    checkOut: '',
     numberOfGuests: 1,
     employeeId: '',
     stayDuration: 1,
     bookingPlatform: 'Counter',
     advanceAmount: 0,
     paymentType: 'Cash',
-    narration: ''
+    narration: '',
+    guestGstin: '',
+    companyName: '',
+    registrationNumber: '',
+    externalBookingId: ''
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRoomType, setSelectedRoomType] = useState('');
   const [allocationSearch, setAllocationSearch] = useState('');
   const [statusTab, setStatusTab] = useState('Live');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAddBookingPage = location.pathname.includes('add-booking');
+
+  useEffect(() => {
+    // Reset all modals and overlays on route change
+    setViewingAllocation(null);
+    setEditingAllocation(null);
+    setShowRoomSelector(false);
+    setShowAddSourceModal(false);
+
+    if (location.pathname.includes('completed')) {
+      setStatusTab('History');
+    } else if (location.pathname.includes('pending')) {
+      setStatusTab('Live');
+      setShowCheckInModal(false); // Ensure modal is closed when viewing pending list
+    } else if (location.pathname.includes('add-booking') || location.pathname.includes('add-customer')) { // Backward compatibility
+      setStatusTab('Live');
+      setShowCheckInModal(true);
+      // Ensure we start with a fresh form for new bookings
+      setFormData(prev => ({
+        ...prev,
+        guestName: '', guestPhone: '', guestIdProofType: 'PAN Card', guestIdNumber: '', guestAddress: '',
+        customerType: 'New', roomIds: [], employeeId: '', bookingPlatform: 'Counter',
+        advanceAmount: 0, paymentType: 'Cash', narration: '', guestGstin: '', companyName: '',
+        registrationNumber: '', externalBookingId: '', existingCustomerId: null
+      }));
+    }
+  }, [location.pathname]);
+
   const [viewingAllocation, setViewingAllocation] = useState(null);
   const [editingAllocation, setEditingAllocation] = useState(null);
   
@@ -114,10 +157,16 @@ const Allocations = () => {
     return allocations.filter(alloc => {
       const custName = getCustomerName(alloc.customerId).toLowerCase();
       const roomNum = getRoomNumber(alloc.roomId).toLowerCase();
+      const regNo = (alloc.registrationNumber || '').toLowerCase();
+      const bookId = (alloc.externalBookingId || '').toLowerCase();
       const search = allocationSearch.toLowerCase();
       
-      const matchesSearch = custName.includes(search) || roomNum.includes(search);
-      const matchesTab = statusTab === 'Live' ? (alloc.status === 'Active' || !alloc.status) : (alloc.status === 'Checked-Out');
+      const matchesSearch = custName.includes(search) || roomNum.includes(search) || regNo.includes(search) || bookId.includes(search);
+      // Live tab: Show Active bookings (or bookings without status for backward compatibility)
+      // History tab: Show ONLY Checked-Out bookings
+      const matchesTab = statusTab === 'Live' 
+        ? (alloc.status === 'Active' || alloc.status === undefined || alloc.status === null || alloc.status === '') 
+        : (alloc.status === 'Checked-Out');
       
 
       
@@ -134,13 +183,30 @@ const Allocations = () => {
         value = value.replace(/\D/g, '').slice(0, 10);
     } else if (name === 'guestName') {
         value = value.replace(/[^a-zA-Z\s.'-]/g, '');
+    } else if (name === 'guestGstin') {
+        value = value.toUpperCase().slice(0, 15);
+    } else if (name === 'companyName') {
+        value = value.toUpperCase(); // Optional, but usually company names are proper case or specific format. Strict uppercase might be too much, but let's keep it simple or remove if user prefers raw. removing uppercase enforcement to be safe.
     }
 
     setFormData(prev => {
        const newData = { ...prev, [name]: value };
        
-       // Auto-lookup for returning guests
-       if (name === 'guestPhone') {
+       // Auto-calculate checkout when check-in changes
+       if (name === 'checkIn' && value && prev.stayDuration) {
+           const checkInDate = new Date(value);
+           const days = parseInt(prev.stayDuration) || 1;
+           const checkOutDate = new Date(checkInDate.getTime() + days * 24 * 60 * 60 * 1000);
+           const year = checkOutDate.getFullYear();
+           const month = String(checkOutDate.getMonth() + 1).padStart(2, '0');
+           const day = String(checkOutDate.getDate()).padStart(2, '0');
+           const hours = String(checkOutDate.getHours()).padStart(2, '0');
+           const minutes = String(checkOutDate.getMinutes()).padStart(2, '0');
+           newData.checkOut = `${year}-${month}-${day}T${hours}:${minutes}`;
+       }
+       
+       // Auto-lookup for returning guests (only for new bookings)
+       if (!editingAllocation && name === 'guestPhone') {
            // Value is already clean digits
            if (value.length >= 10) {
                const inputLast10 = value.slice(-10);
@@ -162,17 +228,19 @@ const Allocations = () => {
                    newData.guestAddress = existing.address || '';
                    newData.guestIdProofType = type;
                    newData.guestIdNumber = num;
-                   newData.guestType = 'Returning';
+                   newData.guestGstin = existing.gstin || '';
+                   newData.companyName = existing.companyName || '';
+                   newData.customerType = 'Returning';
                    newData.existingCustomerId = existing.id;
                } else if (prev.existingCustomerId) {
                    // Input is long enough but no match found -> Reset if previously matched
                    newData.existingCustomerId = null;
-                   newData.guestType = 'New';
+                   newData.customerType = 'New';
                }
            } else if (prev.existingCustomerId) {
                // Input became too short -> Reset match
                newData.existingCustomerId = null;
-               newData.guestType = 'New';
+               newData.customerType = 'New';
            }
        }
        return newData;
@@ -214,27 +282,39 @@ const Allocations = () => {
     setFormData({
       guestName: '',
       guestPhone: '',
-      guestIdProofType: '',
+      guestIdProofType: 'PAN Card',
       guestIdNumber: '',
       guestAddress: '',
-      guestType: 'New',
+      guestGstin: '',
+      companyName: '',
+      registrationNumber: '',
+      externalBookingId: '',
+      customerType: 'New',
       numberOfGuests: 1,
       roomIds: [],
       employeeId: '',
+      stayDuration: 1,
       checkIn: (() => {
          const now = new Date();
-         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-         return now.toISOString().slice(0,16);
+         const year = now.getFullYear();
+         const month = String(now.getMonth() + 1).padStart(2, '0');
+         const day = String(now.getDate()).padStart(2, '0');
+         const hours = String(now.getHours()).padStart(2, '0');
+         const minutes = String(now.getMinutes()).padStart(2, '0');
+         return `${year}-${month}-${day}T${hours}:${minutes}`;
       })(),
-      checkOut: (() => {
-         const tmr = new Date(Date.now() + 86400000);
-         tmr.setMinutes(tmr.getMinutes() - tmr.getTimezoneOffset());
-         return tmr.toISOString().slice(0,16);
-      })(),
+      checkOut: '',
       paymentType: 'Cash',
+      bookingPlatform: 'Counter',
+      advanceAmount: 0,
+      narration: '',
       existingCustomerId: null
     });
-    setShowCheckInModal(false);
+    if (isAddBookingPage) {
+      navigate('/pending');
+    } else {
+      setShowCheckInModal(false);
+    }
   };
 
   const handleCheckInSubmit = async (e) => {
@@ -281,9 +361,11 @@ const Allocations = () => {
               phone: formData.guestPhone, // Ensure phone is updated if slightly changed but matched? Or keep original? Safe to update.
               idProof: `${formData.guestIdProofType} - ${formData.guestIdNumber}`,
               address: formData.guestAddress,
-              customerType: formData.guestType,
+              customerType: formData.customerType,
               visitHistory: newVisits,
-              lastVisit: new Date().toISOString()
+              lastVisit: new Date().toISOString(),
+              gstin: formData.guestGstin || '',
+              companyName: formData.companyName || ''
           });
       } else {
           // Create New Customer
@@ -292,9 +374,11 @@ const Allocations = () => {
               phone: formData.guestPhone,
               idProof: `${formData.guestIdProofType} - ${formData.guestIdNumber}`,
               address: formData.guestAddress,
-              customerType: formData.guestType,
+              customerType: formData.customerType,
               visitHistory: 1,
-              createdAt: new Date().toISOString()
+              createdAt: new Date().toISOString(),
+              gstin: formData.guestGstin || '',
+              companyName: formData.companyName || ''
           };
           
           const customersCollection = collection(db, "customers");
@@ -328,6 +412,8 @@ const Allocations = () => {
              paymentType: formData.paymentType || 'Cash',
              narration: formData.narration || '',
              bookingPlatform: formData.bookingPlatform || 'Counter',
+             registrationNumber: formData.registrationNumber || '',
+             externalBookingId: formData.externalBookingId || '',
              stayDuration: parseInt(formData.stayDuration) || 1
              // Price and basePrice usually shouldn't change on simple edit unless room changes, 
              // but keeping them consistent with current room state if needed or preserving original could be better. 
@@ -344,9 +430,10 @@ const Allocations = () => {
              const basePrice = room?.basePrice || room?.price || '0';
              const gstRate = room?.gstRate || 0;
              // Calculate final price if not present (backward compatibility) or use saved price
-             const finalPrice = room?.price || basePrice;
+             const duration = parseInt(formData.stayDuration) || 1;
+             const finalPrice = (Number(room?.price || basePrice) || 0) * duration;
              const advanceVal = i === 0 ? parseFloat(formData.advanceAmount || 0) : 0;
-             const remainingVal = Number(finalPrice || 0) - advanceVal;
+             const remainingVal = finalPrice - advanceVal;
 
              await addDoc(allocationsCollection, {
                 customerId: newCustomerId,
@@ -365,6 +452,8 @@ const Allocations = () => {
                 paymentType: formData.paymentType || 'Cash',
                 narration: formData.narration || '',
                 bookingPlatform: formData.bookingPlatform || 'Counter',
+                registrationNumber: formData.registrationNumber || '',
+                externalBookingId: formData.externalBookingId || '',
                 stayDuration: parseInt(formData.stayDuration) || 1
              });
              const roomRef = doc(db, "rooms", roomId);
@@ -373,7 +462,7 @@ const Allocations = () => {
       }
       
       setFormData({
-         guestName: '', guestPhone: '', guestIdProofType: '', guestIdNumber: '', guestAddress: '', guestType: 'New',
+         guestName: '', guestPhone: '', guestIdProofType: '', guestIdNumber: '', guestAddress: '', guestGstin: '', companyName: '', registrationNumber: '', externalBookingId: '', customerType: 'New',
          roomIds: [], employeeId: '', 
          stayDuration: 1, bookingPlatform: 'Counter', advanceAmount: 0, paymentType: 'Cash', narration: '', 
          checkIn: (() => {
@@ -388,7 +477,12 @@ const Allocations = () => {
          })(),
          existingCustomerId: null
       });
-      setShowCheckInModal(false);
+
+      if (isAddBookingPage) {
+        navigate('/pending');
+      } else {
+        setShowCheckInModal(false);
+      }
     } catch (error) {
        console.error("Allocation failed", error);
        alert(`Failed to process booking: ${error.message}`);
@@ -425,24 +519,327 @@ const Allocations = () => {
      }
   };
 
+  const handlePrintBill = async (allocation) => {
+     const cust = customers.find(c => String(c.id) === String(allocation.customerId));
+     const room = rooms.find(r => String(r.id) === String(allocation.roomId));
+     
+     // Calculations
+     const duration = parseInt(allocation.stayDuration) || 1;
+     const totalInclusivePrice = Number(allocation.price) || 0;
+     const gstRate = Number(allocation.gstRate) || Number(room?.gstRate) || 0;
+     
+     let baseAmount = totalInclusivePrice;
+     let cgstAmount = 0;
+     let sgstAmount = 0;
+
+     if (gstRate > 0) {
+        baseAmount = totalInclusivePrice / (1 + (gstRate / 100));
+        const totalTax = totalInclusivePrice - baseAmount;
+        cgstAmount = totalTax / 2;
+        sgstAmount = totalTax / 2;
+     }
+
+     const advanceAmount = Number(allocation.advanceAmount) || 0;
+     const dueAmount = totalInclusivePrice - advanceAmount;
+
+     // --- Invoice Generation / Retrieval ---
+     let invoiceNumber = allocation.invoiceNumber;
+     let invoiceDate = new Date().toLocaleDateString();
+
+     if (!invoiceNumber) {
+        try {
+           // Check if invoice already exists in collection but not linked (just in case)
+           const q = query(collection(db, "invoices"), where("allocationId", "==", allocation.id));
+           const querySnapshot = await getDocs(q);
+
+           if (!querySnapshot.empty) {
+              const invData = querySnapshot.docs[0].data();
+              invoiceNumber = invData.invoiceNumber;
+           } else {
+              // Generate Sequential Invoice ID: bill01, bill02...
+              // Find the last generated invoice to increment
+              let nextNum = 1;
+              try {
+                  const lastInvQuery = query(collection(db, "invoices"), orderBy("createdAt", "desc"), limit(1));
+                  const lastInvSnap = await getDocs(lastInvQuery);
+                  if (!lastInvSnap.empty) {
+                     const lastId = lastInvSnap.docs[0].data().invoiceNumber;
+                     // Extract number from "billXX"
+                     const match = lastId.match(/bill(\d+)/i);
+                     if (match) {
+                        nextNum = parseInt(match[1], 10) + 1;
+                     }
+                  }
+              } catch (err) {
+                  console.warn("Could not fetch last invoice, starting sequence at 1", err);
+              }
+              
+              invoiceNumber = `bill${String(nextNum).padStart(2, '0')}`;
+              
+              // Create Invoice Record
+              await addDoc(collection(db, "invoices"), {
+                 invoiceNumber: invoiceNumber,
+                 allocationId: allocation.id,
+                 customerId: allocation.customerId,
+                 customerName: cust?.name || 'Guest',
+                 amount: totalInclusivePrice,
+                 createdAt: new Date().toISOString(),
+                 details: {
+                    baseAmount,
+                    gstRate,
+                    advanceAmount,
+                    dueAmount,
+                    stayDuration: duration
+                 }
+              });
+
+              // Update Allocation with Invoice Number
+              await updateDoc(doc(db, "allocations", allocation.id), {
+                 invoiceNumber: invoiceNumber
+              });
+           }
+        } catch (error) {
+           console.error("Error generating invoice record:", error);
+           invoiceNumber = `TEMP-${Date.now()}`; // Fallback
+        }
+     }
+     // -------------------------------------
+
+     const printWindow = window.open('', '_blank');
+     printWindow.document.write(`
+       <html>
+         <head>
+           <title>Invoice #${invoiceNumber}</title>
+           <style>
+             @page { size: A4; margin: 0; }
+             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; color: #333; -webkit-print-color-adjust: exact; }
+             .container { padding: 40px; max-width: 800px; margin: 0 auto; }
+             
+             /* Header */
+             .header-bar { background: #4f46e5; height: 10px; width: 100%; }
+             .header { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 30px; margin-bottom: 40px; }
+             .logo-area { display: flex; flex-direction: column; gap: 5px; }
+             .company-name { font-size: 28px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.5px; }
+             .company-sub { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #6b7280; font-weight: 600; }
+             .contact-info { margin-top: 10px; font-size: 13px; color: #4b5563; line-height: 1.5; }
+             
+             .invoice-badge { text-align: right; }
+             .badge { background: #e0e7ff; color: #4338ca; padding: 5px 15px; border-radius: 4px; font-weight: 800; font-size: 24px; letter-spacing: 1px; display: inline-block; }
+             .invoice-meta { margin-top: 10px; font-size: 13px; color: #6b7280; }
+             .meta-row { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 2px; }
+             .meta-label { font-weight: 600; }
+             
+             /* Content Grid */
+             .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; border-top: 2px solid #f3f4f6; border-bottom: 2px solid #f3f4f6; padding: 20px 0; }
+             .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 10px; }
+             .data-row { display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 6px; font-size: 13px; }
+             .data-label { color: #6b7280; font-weight: 500; }
+             .data-value { font-weight: 700; color: #111827; }
+             .guest-name { font-size: 16px; font-weight: 800; color: #111827; margin-bottom: 5px; }
+             .guest-address { font-size: 13px; color: #4b5563; line-height: 1.4; max-width: 250px; }
+
+             /* Table */
+             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+             th { text-align: left; padding: 12px 0; border-bottom: 2px solid #e5e7eb; color: #4b5563; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+             td { padding: 16px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; color: #1f2937; }
+             .col-right { text-align: right; }
+             .item-desc { font-weight: 600; }
+             .item-sub { display: block; font-size: 11px; color: #6b7280; margin-top: 2px; font-weight: 400; }
+
+             /* Totals */
+             .totals-wrapper { display: flex; justify-content: flex-end; }
+             .totals { width: 300px; }
+             .total-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; color: #4b5563; }
+             .total-row.final { border-top: 2px solid #111827; margin-top: 10px; padding-top: 10px; color: #111827; font-size: 16px; font-weight: 800; }
+             .balance-due { color: #dc2626; }
+
+             /* Footer */
+             .footer { margin-top: 50px; padding-top: 30px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: flex-end; }
+             .terms { font-size: 10px; color: #9ca3af; max-width: 60%; line-height: 1.4; }
+             .signatory { text-align: center; }
+             .sign-line { width: 150px; border-bottom: 1px solid #d1d5db; margin-bottom: 5px; }
+             .sign-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b7280; }
+           </style>
+         </head>
+         <body>
+           <div class="header-bar"></div>
+           <div class="container">
+              
+              <div class="header">
+                 <div class="logo-area">
+                    <div class="company-name">Balaji Lodge</div>
+                    <div class="contact-info">
+                       123 Main Street, City Center<br>
+                       Phone: +91 98765 43210<br>
+                       Email: info@balajilodge.com
+                    </div>
+                 </div>
+                 <div class="invoice-badge">
+                    <div class="badge">INVOICE</div>
+                    <div class="invoice-meta">
+                       <div class="meta-row"><span class="meta-label">Inv #:</span> <span>${invoiceNumber}</span></div>
+                       <div class="meta-row"><span class="meta-label">Date:</span> <span>${invoiceDate}</span></div>
+                    </div>
+                 </div>
+              </div>
+
+              <div class="details-grid">
+                 <div>
+                    <div class="section-title">Billed To</div>
+                    <div class="guest-name">${cust?.name || 'Guest'}</div>
+                    <div class="guest-address">
+                       ${cust?.address || 'Address not listed'}<br>
+                       ${cust?.phone ? `Phone: ${cust.phone}` : ''}
+                       ${cust?.gstin ? `<br><strong>GSTIN: ${cust.gstin}</strong>` : ''}
+                       ${cust?.companyName ? `<br>Company: ${cust.companyName}` : ''}
+                    </div>
+                 </div>
+                 <div style="text-align:right;">
+                    <div class="section-title">Stay Details</div>
+                    <div class="data-row">
+                       <span class="data-label">Check-In</span>
+                       <span class="data-value">${new Date(allocation.checkIn).toLocaleDateString()} ${new Date(allocation.checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <div class="data-row">
+                       <span class="data-label">Check-Out</span>
+                       <span class="data-value">${allocation.checkOut ? new Date(allocation.checkOut).toLocaleDateString() : '---'} ${allocation.checkOut ? new Date(allocation.checkOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                    </div>
+                    <div class="data-row">
+                       <span class="data-label">Room / Type</span>
+                       <span class="data-value">${room?.roomNumber || 'N/A'} <span style="font-weight:400; color:#6b7280;">(${room?.type || '-'})</span></span>
+                    </div>
+                    <div class="data-row">
+                       <span class="data-label">Duration</span>
+                       <span class="data-value">${duration} Days</span>
+                    </div>
+                    ${allocation.registrationNumber ? `
+                    <div class="data-row">
+                       <span class="data-label">Reg. No</span>
+                       <span class="data-value">${allocation.registrationNumber}</span>
+                    </div>` : ''}
+                 </div>
+              </div>
+
+              <table>
+                 <thead>
+                    <tr>
+                       <th>Description</th>
+                       <th class="col-right">Qty</th>
+                       <th class="col-right">Rate</th>
+                       <th class="col-right">Amount</th>
+                    </tr>
+                 </thead>
+                 <tbody>
+                    <tr>
+                       <td>
+                          <div class="item-desc">Accommodation Charges</div>
+                          <span class="item-sub">Room ${room?.roomNumber} (${room?.type})</span>
+                       </td>
+                       <td class="col-right">${duration}</td>
+                       <td class="col-right">₹${((baseAmount / duration) || 0).toFixed(2)}</td>
+                       <td class="col-right">₹${baseAmount.toFixed(2)}</td>
+                    </tr>
+                    ${gstRate > 0 ? `
+                    <tr>
+                       <td>
+                          <div class="item-desc">SGST @ ${(gstRate/2)}%</div>
+                       </td>
+                       <td class="col-right">-</td>
+                       <td class="col-right">-</td>
+                       <td class="col-right">₹${sgstAmount.toFixed(2)}</td>
+                    </tr>
+                     <tr>
+                       <td>
+                          <div class="item-desc">CGST @ ${(gstRate/2)}%</div>
+                       </td>
+                       <td class="col-right">-</td>
+                       <td class="col-right">-</td>
+                       <td class="col-right">₹${cgstAmount.toFixed(2)}</td>
+                    </tr>
+                    ` : ''}
+                 </tbody>
+              </table>
+
+              <div class="totals-wrapper">
+                 <div class="totals">
+                    <div class="total-row">
+                       <span>Sub Total</span>
+                       <span>₹${baseAmount.toFixed(2)}</span>
+                    </div>
+                    ${gstRate > 0 ? `
+                    <div class="total-row">
+                       <span>Total Tax (${gstRate}%)</span>
+                       <span>₹${(cgstAmount + sgstAmount).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="total-row final">
+                       <span>Grand Total</span>
+                       <span>₹${totalInclusivePrice.toFixed(2)}</span>
+                    </div>
+                    <div class="total-row">
+                       <span>Advance Paid</span>
+                       <span style="color:#059669;">- ₹${advanceAmount.toFixed(2)}</span>
+                    </div>
+                    <div class="total-row final balance-due">
+                       <span style="font-size:14px;">Balance Due</span>
+                       <span style="font-size:14px;">₹${dueAmount.toFixed(2)}</span>
+                    </div>
+                 </div>
+              </div>
+
+              <div class="footer">
+                 <div class="terms">
+                    <strong>Terms & Conditions:</strong><br>
+                    1. Cheques are subject to realization.<br>
+                    2. Check-out time is 24 hours.<br>
+                    3. Goods kept in the room are at owner's risk.<br>
+                    4. Disputes are subject to local jurisdiction only.
+                 </div>
+                 <div class="signatory">
+                    <div class="sign-line"></div>
+                    <div class="sign-label">Authorized Signatory</div>
+                 </div>
+              </div>
+              
+              <div style="text-align:center; font-size:10px; color:#cbd5e1; margin-top:20px;">
+                 Thank you for staying with us!
+              </div>
+
+           </div>
+         </body>
+       </html>
+     `);
+     printWindow.document.close();
+     printWindow.print();
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] space-y-2">
       
       {/* Top Section (Fixed) */}
+      {!isAddBookingPage && (
       <div className="flex-none space-y-3">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Front Desk</h1>
-             <p className="text-gray-500 text-sm mt-1">Manage guest check-ins, allocations, and history</p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              {statusTab === 'History' 
+                ? 'Completed Bookings' 
+                : location.pathname.includes('pending') 
+                  ? 'Pending' 
+                  : 'Add Booking'}
+            </h1>
+             <p className="text-gray-500 text-sm mt-1">{statusTab === 'Live' ? 'New check-ins & active guests' : 'View past booking history'}</p>
           </div>
           <div className="flex items-center gap-2">
-              <button 
-                onClick={() => { resetForm(); setShowCheckInModal(true); }}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow-sm transition-all"
-              >
-                <CalendarPlus size={16} /> New Booking
-              </button>
+              {statusTab === 'Live' && !location.pathname.includes('pending') && (
+                  <button 
+                    onClick={() => { resetForm(); setShowCheckInModal(true); }}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow-sm transition-all"
+                  >
+                    <CalendarPlus size={16} /> New Booking
+                  </button>
+              )}
           </div>
         </div>
 
@@ -498,61 +895,73 @@ const Allocations = () => {
 
             <div className="flex items-center gap-3 w-full lg:w-auto">
                  {/* Status Filters - Segmented Control Style */}
-                 <div className="flex bg-gray-50 p-1 rounded-lg border border-gray-100 shrink-0">
-                    <button
-                        onClick={() => setStatusTab('Live')}
-                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                          statusTab === 'Live' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        LIVE STAY
-                      </button>
-                      <button
-                        onClick={() => setStatusTab('History')}
-                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                          statusTab === 'History' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        HISTORY
-                      </button>
-                 </div>
+                 {(!location.pathname.includes('add-customer') && !location.pathname.includes('completed')) && (
+                     <div className="flex bg-gray-50 p-1 rounded-lg border border-gray-100 shrink-0">
+                        <button
+                            onClick={() => setStatusTab('Live')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                              statusTab === 'Live' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            LIVE STAY
+                          </button>
+                          <button
+                            onClick={() => setStatusTab('History')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                              statusTab === 'History' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            HISTORY
+                          </button>
+                     </div>
+                 )}
             </div>
         </div>
       </div>
+      )}
 
       {/* Table Container */}
+      {!isAddBookingPage && (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
          <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
            <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-400 text-[10px] uppercase tracking-wider font-bold">
                  <tr>
-                    <th className="px-6 py-4 text-center">#</th>
-                    <th className="px-6 py-4">Room No</th>
-                    <th className="px-6 py-4">Guest Name</th>
-                    <th className="px-6 py-4">Duration</th>
-                    <th className="px-6 py-4">Duty Staff</th>
-                    <th className="px-6 py-4 text-center">Status</th>
-                    <th className="px-6 py-4 text-center">Actions</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">#</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Room No</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Customer Name</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Reg No</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Booking ID</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Duration</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Duty Staff</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
                  </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                  {filteredAllocations.map((alloc, index) => (
                    <tr key={alloc.id} className="group hover:bg-gray-50/80 transition-all">
-                     <td className="px-6 py-4 text-center">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-bold text-gray-400">{(index + 1).toString().padStart(2, '0')}</span>
                      </td>
-                     <td className="px-6 py-4">
+                     <td className="px-4 py-3 whitespace-nowrap">
                         <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
                            {getRoomNumber(alloc.roomId)}
                         </span>
                      </td>
-                     <td className="px-6 py-4">
+                     <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-gray-900">{getCustomerName(alloc.customerId)}</span>
                             <span className="text-[10px] text-gray-400 font-medium">Guest</span>
                         </div>
                      </td>
-                     <td className="px-6 py-4">
+                     <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-xs font-bold text-gray-700">{alloc.registrationNumber || '---'}</span>
+                     </td>
+                     <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-xs font-medium text-gray-500">{alloc.externalBookingId || '---'}</span>
+                     </td>
+                     <td className="px-4 py-3 whitespace-nowrap">
                         <div className="space-y-1">
                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
                               In: {formatDate(alloc.checkIn)}
@@ -562,10 +971,10 @@ const Allocations = () => {
                            </div>
                         </div>
                      </td>
-                     <td className="px-6 py-4">
+                     <td className="px-4 py-3 whitespace-nowrap">
                         <span className="text-xs font-semibold text-gray-700">{getEmployeeName(alloc.employeeId)}</span>
                      </td>
-                     <td className="px-6 py-4 text-center">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
                         {alloc.status === 'Checked-Out' ? (
                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-500 border border-gray-200">
                               Checked Out
@@ -577,7 +986,7 @@ const Allocations = () => {
                            </span>
                         )}
                      </td>
-                     <td className="px-6 py-4 text-center">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2 transition-opacity">
                            <button 
                              onClick={() => setViewingAllocation(alloc)}
@@ -597,7 +1006,9 @@ const Allocations = () => {
                                    guestIdProofType: cust?.idProof?.split(' - ')[0] || '',
                                    guestIdNumber: cust?.idProof?.split(' - ')[1] || '',
                                    guestAddress: cust?.address || '',
-                                   guestType: cust?.customerType || 'New',
+                                   customerType: cust?.customerType || 'New',
+                                   guestGstin: cust?.gstin || '',
+                                   companyName: cust?.companyName || '',
                                    roomIds: [alloc.roomId],
                                    employeeId: alloc.employeeId || '',
                                    checkIn: alloc.checkIn?.slice(0, 16) || '',
@@ -605,6 +1016,8 @@ const Allocations = () => {
                                    advanceAmount: alloc.advanceAmount || 0,
                                    paymentType: alloc.paymentType || 'Cash',
                                    narration: alloc.narration || '',
+                                   registrationNumber: alloc.registrationNumber || '',
+                                   externalBookingId: alloc.externalBookingId || '',
                                    bookingPlatform: alloc.bookingPlatform || 'Counter',
                                    numberOfGuests: alloc.numberOfGuests || 1,
                                    stayDuration: alloc.stayDuration || 1,
@@ -641,7 +1054,7 @@ const Allocations = () => {
                  ))}
                  {filteredAllocations.length === 0 && (
                    <tr>
-                     <td colSpan="7" className="py-20 text-center text-gray-400">
+                     <td colSpan="9" className="py-20 text-center text-gray-400">
                         <div className="flex flex-col items-center justify-center">
                            <Search size={32} className="mb-3 opacity-20" />
                            <p className="text-sm font-medium">No bookings found matching your criteria.</p>
@@ -653,20 +1066,23 @@ const Allocations = () => {
            </table>
          </div>
       </div>
+      )}
 
-      {/* Check-In Drawer */}
-      {showCheckInModal && createPortal(
-         <div className="fixed inset-0 z-[60] bg-white animate-fade-in">
-            <div className="bg-white w-full h-full flex flex-col overflow-hidden animate-slide-up relative my-0">
+      {(() => {
+        if (!showCheckInModal && !isAddBookingPage) return null;
+        const content = (
+            <div className={`bg-white w-full h-full flex flex-col overflow-hidden ${isAddBookingPage ? '' : 'animate-slide-up relative my-0'}`}>
                {/* Header */}
-               <div className="px-6 py-4 bg-indigo-600 text-white flex justify-between items-center shrink-0">
+               <div className={`px-6 py-4 flex justify-between items-center shrink-0 ${isAddBookingPage ? 'bg-gray-50 border-b border-gray-200' : 'bg-indigo-600 text-white'}`}>
                   <div>
-                    <h2 className="text-xl font-bold tracking-tight">New Booking</h2>
-                     <p className="text-indigo-100 text-xs opacity-80 mt-1">Guest check-in & room allocation</p>
+                    <h2 className={`text-xl font-bold tracking-tight ${isAddBookingPage ? 'text-gray-900' : 'text-white'}`}>{editingAllocation ? 'Update Booking' : 'New Booking'}</h2>
+                     {!isAddBookingPage && <p className="text-indigo-100 text-xs opacity-80 mt-1">Guest check-in & room allocation</p>}
                   </div>
-                  <button onClick={resetForm} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-bold transition-all text-white">
-                     Close
-                  </button>
+                  {!isAddBookingPage && (
+                    <button onClick={resetForm} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-bold transition-all text-white">
+                       Close
+                    </button>
+                  )}
                </div>
                
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
@@ -682,24 +1098,24 @@ const Allocations = () => {
                                       <h3 className="text-sm font-bold text-gray-900">Guest Information</h3>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                       <div className="col-span-2 sm:col-span-1">
-                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Mobile Number</label>
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Contact Number</label>
                                          <div className="relative">
                                              <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                              <input type="tel" name="guestPhone" value={formData.guestPhone} onChange={handleChange} className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="9876543210" required />
                                          </div>
                                       </div>
                                       <div className="col-span-2 sm:col-span-1">
-                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Guest Name</label>
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Customer Name</label>
                                          <div className="relative">
                                              <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                             <input type="text" name="guestName" value={formData.guestName} onChange={handleChange} className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="Full Name" required />
+                                             <input type="text" name="guestName" value={formData.guestName} onChange={handleChange} className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="Full Name (e.g. John Doe)" required />
                                          </div>
                                       </div>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                       <div className="col-span-2 sm:col-span-1">
                                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">ID Proof Type</label>
                                          <select name="guestIdProofType" value={formData.guestIdProofType} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" required>
@@ -715,6 +1131,17 @@ const Allocations = () => {
                                       <div className="col-span-2 sm:col-span-1">
                                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">ID Number</label>
                                          <input type="text" name="guestIdNumber" value={formData.guestIdNumber} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="ID Number" required />
+                                      </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      <div className="col-span-2 sm:col-span-1">
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Company Name</label>
+                                         <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="Company (Optional)" />
+                                      </div>
+                                      <div className="col-span-2 sm:col-span-1">
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">GSTIN No.</label>
+                                         <input type="text" name="guestGstin" value={formData.guestGstin} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="GSTIN (Optional)" />
                                       </div>
                                   </div>
                                   
@@ -733,7 +1160,58 @@ const Allocations = () => {
                                       <h3 className="text-sm font-bold text-gray-900">Stay Details</h3>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Check In</label>
+                                        <input type="datetime-local" name="checkIn" value={formData.checkIn} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-[10px] font-bold transition-all" required />
+                                     </div>
+                                     <div>
+                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Expected Out</label>
+                                        <input 
+                                           type="datetime-local" 
+                                           name="checkOut" 
+                                           value={formData.checkOut} 
+                                           onChange={(e) => {
+                                              const newCheckOut = e.target.value;
+                                              const diffTime = Math.abs(new Date(newCheckOut) - new Date(formData.checkIn));
+                                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                                              setFormData(prev => ({ ...prev, checkOut: newCheckOut, stayDuration: diffDays || 1 }));
+                                           }}
+                                           className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-[10px] font-bold transition-all" 
+
+                                        />
+                                     </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      <div>
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Number of Days</label>
+                                         <input 
+                                            type="number" 
+                                            name="stayDuration" 
+                                            value={formData.stayDuration} 
+                                            onChange={(e) => {
+                                               const val = e.target.value;
+                                               if (val === '') { setFormData(prev => ({ ...prev, stayDuration: '' })); return; }
+                                               const days = parseInt(val) || 0;
+                                               if (days < 1) return;
+                                               const checkInDate = new Date(formData.checkIn);
+                                               const newCheckOut = new Date(checkInDate.getTime() + days * 24 * 60 * 60 * 1000);
+                                               const tzOffset = newCheckOut.getTimezoneOffset() * 60000;
+                                               setFormData(prev => ({ ...prev, stayDuration: days, checkOut: new Date(newCheckOut.getTime() - tzOffset).toISOString().slice(0, 16) }));
+                                            }} 
+                                            min="1" 
+                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" 
+
+                                         />
+                                      </div>
+                                     <div>
+                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Number of Persons</label>
+                                        <input type="number" name="numberOfGuests" value={formData.numberOfGuests} onChange={handleChange} min="1" max="10" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" placeholder="1" required />
+                                     </div>
+                                  </div>
+ 
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                      <div className="col-span-2 sm:col-span-1">
                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Room Type</label>
                                         <select 
@@ -754,8 +1232,8 @@ const Allocations = () => {
                                      </div>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4">
-                                      <div className="col-span-2 sm:col-span-1">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      <div>
                                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Booking Source</label>
                                          <div className="flex gap-2">
                                             <select 
@@ -763,7 +1241,7 @@ const Allocations = () => {
                                                value={formData.bookingPlatform} 
                                                onChange={handleChange} 
                                                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" 
-                                               required
+
                                             >
                                                {bookingSources.map(source => (
                                                   <option key={source} value={source}>{source}</option>
@@ -779,64 +1257,24 @@ const Allocations = () => {
                                             </button>
                                          </div>
                                       </div>
-                                      <div className="col-span-2 sm:col-span-1">
-                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Duration (Days)</label>
-                                         <input 
-                                            type="number" 
-                                            name="stayDuration" 
-                                            value={formData.stayDuration} 
-                                            onChange={(e) => {
-                                               const val = e.target.value;
-                                               if (val === '') { setFormData(prev => ({ ...prev, stayDuration: '' })); return; }
-                                               const days = parseInt(val) || 0;
-                                               if (days < 1) return;
-                                               const checkInDate = new Date(formData.checkIn);
-                                               const newCheckOut = new Date(checkInDate.getTime() + days * 24 * 60 * 60 * 1000);
-                                               const tzOffset = newCheckOut.getTimezoneOffset() * 60000;
-                                               setFormData(prev => ({ ...prev, stayDuration: days, checkOut: new Date(newCheckOut.getTime() - tzOffset).toISOString().slice(0, 16) }));
-                                            }} 
-                                            min="1" 
-                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" 
-                                            required 
-                                         />
+                                      <div>
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Booking Done By</label>
+                                         <select name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" required>
+                                            <option value="">Select Staff</option>
+                                            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                         </select>
                                       </div>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4">
-                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Check In</label>
-                                        <input type="datetime-local" name="checkIn" value={formData.checkIn} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-[10px] font-bold transition-all" required />
-                                     </div>
-                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Expected Out</label>
-                                        <input 
-                                           type="datetime-local" 
-                                           name="checkOut" 
-                                           value={formData.checkOut} 
-                                           onChange={(e) => {
-                                              const newCheckOut = e.target.value;
-                                              const diffTime = Math.abs(new Date(newCheckOut) - new Date(formData.checkIn));
-                                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                                              setFormData(prev => ({ ...prev, checkOut: newCheckOut, stayDuration: diffDays || 1 }));
-                                           }}
-                                           className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-[10px] font-bold transition-all" 
-                                           required 
-                                        />
-                                     </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-4">
-                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">No. of Guests</label>
-                                        <input type="number" name="numberOfGuests" value={formData.numberOfGuests} onChange={handleChange} min="1" max="10" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" placeholder="1" required />
-                                     </div>
-                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Booking By</label>
-                                        <select name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" required>
-                                           <option value="">Select Staff</option>
-                                           {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                        </select>
-                                     </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      <div>
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Register No</label>
+                                         <input type="text" name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold transition-all" placeholder="Reg. No" />
+                                      </div>
+                                      <div>
+                                         <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Booking ID</label>
+                                         <input type="text" name="externalBookingId" value={formData.externalBookingId} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold transition-all" placeholder="Optional" />
+                                      </div>
                                   </div>
                               </div>
                               
@@ -855,11 +1293,11 @@ const Allocations = () => {
                                          <span className="font-black text-gray-900 text-sm">
                                             ₹{formData.roomIds.reduce((sum, id) => {
                                                const room = rooms.find(r => r.id === id);
-                                               return sum + (Number(room?.price || room?.basePrice || 0) || 0);
+                                               return sum + ((Number(room?.price || room?.basePrice || 0) || 0) * (formData.stayDuration || 1));
                                             }, 0).toLocaleString('en-IN')}
                                          </span>
                                       </div>
-                                      <div className="grid grid-cols-2 gap-4 items-center">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                                           <label className="text-[11px] font-bold text-gray-600 uppercase">Advance Payment</label>
                                           <div className="relative">
                                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">₹</span>
@@ -873,7 +1311,7 @@ const Allocations = () => {
                                               />
                                           </div>
                                       </div>
-                                      <div className="grid grid-cols-2 gap-4 items-center">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                                           <label className="text-[11px] font-bold text-gray-600 uppercase">Payment Type</label>
                                           <div className="relative">
                                               <CreditCard size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -882,7 +1320,7 @@ const Allocations = () => {
                                                  value={formData.paymentType} 
                                                  onChange={handleChange} 
                                                  className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none text-xs font-bold appearance-none" 
-                                                 required
+
                                               >
                                                  <option value="Cash">Cash Payment</option>
                                                  <option value="Bank Deposit">Bank Deposit</option>
@@ -893,12 +1331,12 @@ const Allocations = () => {
                                       </div>
                                       <div className="flex justify-between items-center text-xs pt-3 border-t border-gray-200">
                                          <span className="font-bold text-gray-600 uppercase">Remaining Balance</span>
-                                         <span className="font-black text-rose-600 text-base">
-                                            ₹{(formData.roomIds.reduce((sum, id) => {
-                                               const room = rooms.find(r => r.id === id);
-                                               return sum + (Number(room?.price || room?.basePrice || 0) || 0);
-                                            }, 0) - (parseFloat(formData.advanceAmount) || 0)).toLocaleString('en-IN')}
-                                         </span>
+                                          <span className="font-black text-rose-600 text-base">
+                                             ₹{(formData.roomIds.reduce((sum, id) => {
+                                                const room = rooms.find(r => r.id === id);
+                                                return sum + ((Number(room?.price || room?.basePrice || 0) || 0) * (formData.stayDuration || 1));
+                                             }, 0) - (parseFloat(formData.advanceAmount) || 0)).toLocaleString('en-IN')}
+                                          </span>
                                       </div>
                                   </div>
 
@@ -919,12 +1357,12 @@ const Allocations = () => {
                                   <div className="flex justify-end pt-2">
                                      <div className="text-right">
                                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Net Total</p>
-                                         <p className="text-lg font-black text-indigo-600">
-                                            ₹{formData.roomIds.reduce((sum, id) => {
-                                               const room = rooms.find(r => r.id === id);
-                                               return sum + (Number(room?.price || room?.basePrice || 0) || 0);
-                                            }, 0).toLocaleString('en-IN')}
-                                         </p>
+                                          <p className="text-lg font-black text-indigo-600">
+                                             ₹{formData.roomIds.reduce((sum, id) => {
+                                                const room = rooms.find(r => r.id === id);
+                                                return sum + ((Number(room?.price || room?.basePrice || 0) || 0) * (formData.stayDuration || 1));
+                                             }, 0).toLocaleString('en-IN')}
+                                          </p>
                                      </div>
                                   </div>
                                )}
@@ -943,9 +1381,13 @@ const Allocations = () => {
                    </div>
                 </div>
             </div>
-         </div>,
-         document.body
-      )}
+         );
+
+         if (isAddBookingPage) {
+            return <div className="flex-1 h-full rounded-xl border border-gray-200 shadow-sm overflow-hidden">{content}</div>;
+         }
+         return createPortal(<div className="fixed inset-0 z-[60] bg-white animate-fade-in">{content}</div>, document.body);
+      })()}
 
       {/* View Booking Details Drawer */}
       {viewingAllocation && createPortal(
@@ -964,11 +1406,19 @@ const Allocations = () => {
                      </div>
                      <p className="text-indigo-100 text-sm font-medium opacity-80">Reference ID: #{viewingAllocation.id.slice(0,8).toUpperCase()}</p>
                   </div>
-                  <button onClick={() => setViewingAllocation(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>
+                   <div className="flex items-center gap-2">
+                      <button 
+                         onClick={() => handlePrintBill(viewingAllocation)}
+                         className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"
+                         title="Print Bill"
+                      >
+                         <Printer size={20} />
+                      </button>
+                      <button onClick={() => setViewingAllocation(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>
+                   </div>
                </div>
                
                {/* Content - Desktop Grid */}
-               <div className="flex-1 p-0">
                <div className="flex-1 p-0">
                   <div className="p-5 flex flex-col gap-4">
                      
@@ -989,6 +1439,12 @@ const Allocations = () => {
                         <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 flex flex-col justify-center">
                             <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">ID Proof</p>
                             <p className="text-xs font-bold text-gray-800 truncate">{customers.find(c => String(c.id) === String(viewingAllocation.customerId))?.idProof || 'Not Provided'}</p>
+                            {customers.find(c => String(c.id) === String(viewingAllocation.customerId))?.companyName && (
+                                <p className="text-[10px] font-bold text-gray-700 truncate mt-0.5">{customers.find(c => String(c.id) === String(viewingAllocation.customerId))?.companyName}</p>
+                            )}
+                            {customers.find(c => String(c.id) === String(viewingAllocation.customerId))?.gstin && (
+                                <p className="text-[10px] font-bold text-indigo-600 truncate mt-0.5">GST: {customers.find(c => String(c.id) === String(viewingAllocation.customerId))?.gstin}</p>
+                            )}
                             <p className="text-[10px] font-medium text-gray-400 truncate mt-0.5">{customers.find(c => String(c.id) === String(viewingAllocation.customerId))?.address || 'N/A'}</p>
                         </div>
                      </div>
@@ -1023,6 +1479,14 @@ const Allocations = () => {
                            <div>
                               <p className="text-[10px] text-rose-600 font-bold uppercase">Check-Out</p>
                               <p className="text-xs font-bold text-gray-800">{formatDate(viewingAllocation.checkOut)}</p>
+                           </div>
+                           <div>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase">Reg Type/No</p>
+                              <p className="text-xs font-bold text-gray-800 truncate">{viewingAllocation.registrationNumber || '---'}</p>
+                           </div>
+                           <div>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase">Booking ID</p>
+                              <p className="text-xs font-bold text-gray-800 truncate">{viewingAllocation.externalBookingId || '---'}</p>
                            </div>
                         </div>
                      </div>
@@ -1064,7 +1528,7 @@ const Allocations = () => {
 
                   </div>
                </div>
-               </div>
+
                
                {/* Footer Removed */}
             </div>

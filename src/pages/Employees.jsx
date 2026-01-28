@@ -617,6 +617,11 @@ const Employees = () => {
                            <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-10 gap-2">
                               {rooms
                                 .filter(room => !takenRoomsMap.has(String(room.roomNumber)))
+                                .sort((a, b) => {
+                                   const numA = parseInt(a.roomNumber.replace(/\D/g, '')) || 0;
+                                   const numB = parseInt(b.roomNumber.replace(/\D/g, '')) || 0;
+                                   return numA - numB;
+                                })
                                 .map(room => {
                                  const isSelected = formData.assignedRooms.some(r => String(r) === String(room.roomNumber));
                                  

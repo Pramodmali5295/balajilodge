@@ -1,11 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BedDouble, Users, UserCheck, CalendarRange, X } from 'lucide-react';
+import { LayoutDashboard, BedDouble, Users, UserCheck, CalendarRange, X, CalendarClock, CheckSquare, Clock } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Add Customer', path: '/allocations', icon: <CalendarRange size={20} /> },
+    { name: 'Add New Customer', path: '/add-booking', icon: <CalendarClock size={20} /> },
+    { name: 'Pending', path: '/pending', icon: <Clock size={20} /> },
+    { name: 'Completed', path: '/completed', icon: <CheckSquare size={20} /> },
     { name: 'Rooms', path: '/rooms', icon: <BedDouble size={20} /> },
     { name: 'Employees', path: '/employees', icon: <Users size={20} /> },
 

@@ -326,7 +326,7 @@ const Rooms = () => {
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6 flex-1 overflow-y-auto">
               <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                        <label className="block text-sm font-bold text-gray-700 mb-1">Room Number</label>
                        <input type="text" name="roomNumber" value={formData.roomNumber} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-lg transition-all" placeholder="101" required />
@@ -347,7 +347,7 @@ const Rooms = () => {
                        Pricing & Tax Configuration
                     </h3>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        {/* Base Price */}
                        <div>
                           <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Base Price</label>
