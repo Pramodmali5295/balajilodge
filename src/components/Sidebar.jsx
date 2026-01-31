@@ -80,7 +80,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className="p-4 border-t border-slate-800">
              <button
                 onClick={() => logout()}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-bold text-sm text-slate-400 hover:bg-slate-800 hover:text-red-400"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-bold text-sm bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30"
              >
                 <LogOut size={20} className="group-hover:scale-110 transition-transform" />
                 <span>Sign Out</span>

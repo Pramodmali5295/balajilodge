@@ -113,9 +113,30 @@ const Customers = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Name', 'Phone', 'ID Proof Type', 'ID Number', 'Address', 'Customer Type', 'Total Visits', 'Total Revenue (Base)', 'Total GST (12%)', 'Total Amount', 'Total Paid', 'Payment Methods Used', 'First Registered', 'Last Visit', 'Register Nos', 'Booking IDs'];
+    // Logical sequence: Basic Info → Contact → ID → Visit Stats → Financial → Booking Details
+    const headers = [
+      'Sr. No',
+      'Name', 
+      'Phone', 
+      'Address',
+      'ID Proof Type', 
+      'ID Number',
+      'Customer Type',
+      'First Registered', 
+      'Last Visit',
+      'Total Visits',
+      'Total Amount (Without GST)', 
+      'Total CGST (6%)', 
+      'Total SGST (6%)', 
+      'Total Amount (With GST)', 
+      'Advance Amount',
+      'Payment Methods Used',
+      'Register Nos', 
+      'Booking IDs', 
+      'Booked Rooms'
+    ];
     
-    const rows = filteredCustomers.map(c => {
+    const rows = filteredCustomers.map((c, index) => {
        // Calculate visits stats
        const customerStays = allocations.filter(a => String(a.customerId) === String(c.id));
        const visitCount = customerStays.length;
@@ -139,15 +160,49 @@ const Customers = () => {
           idNumber = c.idProof || '';
        }
 
+       // Get all booked rooms
+       const allRooms = customerStays.map(stay => {
+           if (stay.roomSelections && stay.roomSelections.length > 0) {
+               return stay.roomSelections.map(s => {
+                   const r = rooms.find(rm => String(rm.id) === String(s.roomId));
+                   return r ? r.roomNumber : 'Unknown';
+               }).join(', ');
+           } else {
+               const r = rooms.find(rm => String(rm.id) === String(stay.roomId));
+               return r ? r.roomNumber : '';
+           }
+       }).filter(Boolean).join(' | ');
+
        // Get Registration Numbers and Booking IDs
        const regNos = [...new Set(customerStays.map(s => s.registrationNumber).filter(Boolean))].join(' | ');
        const bookingIds = [...new Set(customerStays.map(s => s.externalBookingId).filter(Boolean))].join(' | ');
 
        // Calculate financial totals
-       const totalRevenue = customerStays.reduce((sum, stay) => sum + (Number(stay.price) || 0), 0);
-       const totalGST = totalRevenue * 0.12; // 12% GST
-       const totalAmount = totalRevenue + totalGST;
-       const totalPaid = customerStays.reduce((sum, stay) => sum + (Number(stay.advanceAmount) || 0), 0);
+       // IMPORTANT: stay.price already includes GST
+       // We need to extract the base amount and GST from the total
+       let totalRevenue = 0;
+       let totalCGST = 0;
+       let totalSGST = 0;
+       let totalAmount = 0;
+       let advanceAmount = 0;
+
+       customerStays.forEach(stay => {
+          const totalPrice = Number(stay.price) || 0; // This is total WITH GST
+          const gstRate = Number(stay.gstRate) || 12; // GST percentage
+          
+          // Calculate base amount: Total = Base × (1 + GST/100)
+          // Therefore: Base = Total / (1 + GST/100)
+          const basePrice = totalPrice / (1 + gstRate / 100);
+          const gstAmount = totalPrice - basePrice;
+          const cgst = gstAmount / 2; // Half of GST is CGST
+          const sgst = gstAmount / 2; // Half of GST is SGST
+          
+          totalRevenue += basePrice;
+          totalCGST += cgst;
+          totalSGST += sgst;
+          totalAmount += totalPrice;
+          advanceAmount += Number(stay.advanceAmount) || 0;
+       });
        
        // Get unique payment methods
        const paymentMethods = [...new Set(customerStays
@@ -165,22 +220,25 @@ const Customers = () => {
        };
 
        return [
+          index + 1, // Sr. No
           escapeCsv(c.name),
           escapeCsv(c.phone),
-          escapeCsv(idType),
-          escapeCsv(idNumber),
           escapeCsv(c.address),
+          escapeCsv(idType),  
+          escapeCsv(idNumber),
           escapeCsv(c.customerType || c.guestType || 'Regular'),
-          visitCount,
-          totalRevenue.toFixed(2),
-          totalGST.toFixed(2),
-          totalAmount.toFixed(2),
-          totalPaid.toFixed(2),
-          escapeCsv(paymentMethods),
           registered,
           lastVisit,
+          visitCount,
+          totalRevenue.toFixed(2),
+          totalCGST.toFixed(2),
+          totalSGST.toFixed(2),
+          totalAmount.toFixed(2),
+          advanceAmount.toFixed(2),
+          escapeCsv(paymentMethods),
           escapeCsv(regNos),
-          escapeCsv(bookingIds)
+          escapeCsv(bookingIds),
+          escapeCsv(allRooms)
        ];
     });
 
@@ -296,7 +354,7 @@ const Customers = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
               <tr>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">#</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">Sr. No</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact Info</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Address</th>
@@ -356,10 +414,6 @@ const Customers = () => {
                )}
             </tbody>
           </table>
-        </div>
-        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Records</span>
-             <span className="text-sm font-bold text-gray-800 bg-white px-3 py-1 rounded border border-gray-200 shadow-sm">{filteredCustomers.length}</span>
         </div>
       </div>
 
@@ -448,7 +502,11 @@ const Customers = () => {
                             <div className="min-w-0">
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Identification</p>
                                 <p className="text-sm font-black text-gray-900 truncate">{selectedGuest.idProof || 'Not Provided'}</p>
-                                <p className="text-xs font-medium text-gray-500">Registered: {selectedGuest.createdAt ? new Date(selectedGuest.createdAt).toLocaleDateString() : 'Unknown'}</p>
+                                <p className="text-xs font-medium text-gray-500">Registered: {(() => {
+                                   if (!selectedGuest.createdAt) return 'Unknown';
+                                   const d = new Date(selectedGuest.createdAt);
+                                   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+                                })()}</p>
                             </div>
                         </div>
                      </div>
@@ -465,7 +523,7 @@ const Customers = () => {
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                            <div>
                               <p className="text-[10px] uppercase font-bold text-gray-400">Total Spent</p>
-                              <p className="text-2xl font-black text-emerald-600">₹{allocations.filter(a => String(a.customerId) === String(selectedGuest.id)).reduce((sum, a) => sum + (Number(a.price) || 0) + (Number(a.price || 0)*0.12), 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</p>
+                              <p className="text-2xl font-black text-emerald-600">₹{allocations.filter(a => String(a.customerId) === String(selectedGuest.id)).reduce((sum, a) => sum + (Number(a.price) || 0), 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</p>
                            </div>
                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><UserCheck size={20}/></div>
                         </div>
@@ -476,7 +534,10 @@ const Customers = () => {
                                  const stays = allocations.filter(a => String(a.customerId) === String(selectedGuest.id));
                                  if (stays.length === 0) return <p className="text-xl font-bold text-gray-600">N/A</p>;
                                  const lastDate = new Date(Math.max(...stays.map(a => new Date(a.checkIn).getTime())));
-                                 return <p className="text-xl font-bold text-gray-800">{lastDate.toLocaleDateString()}</p>;
+                                 return <p className="text-xl font-bold text-gray-800">{(() => {
+                                    const d = new Date(lastDate);
+                                    return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                 })()}</p>;
                               })()}
                            </div>
                            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Calendar size={20}/></div>
@@ -503,7 +564,24 @@ const Customers = () => {
                                          <div className="bg-white border border-gray-200 rounded-xl p-3 hover:shadow-md transition-shadow">
                                              <div className="flex justify-between items-start mb-2">
                                                 <div>
-                                                   <span className="text-sm font-bold text-gray-900 block">Room {room?.roomNumber || 'Unknown'} <span className="text-gray-400 font-normal text-xs">({room?.type})</span></span>
+                                                    <span className="text-sm font-bold text-gray-900 block">
+                                                       {stay.roomSelections && stay.roomSelections.length > 0 ? (
+                                                          <span>
+                                                             {stay.roomSelections.map((s, i) => {
+                                                                const r = rooms.find(rm => String(rm.id) === String(s.roomId));
+                                                                return (
+                                                                   <span key={i}>
+                                                                      Room {r?.roomNumber || 'Unknown'} 
+                                                                      <span className="text-gray-400 font-normal text-xs ml-1">({s.roomType || r?.type})</span>
+                                                                      {i < stay.roomSelections.length - 1 && ', '}
+                                                                   </span>
+                                                                );
+                                                             })}
+                                                          </span>
+                                                       ) : (
+                                                          <span>Room {room?.roomNumber || 'Unknown'} <span className="text-gray-400 font-normal text-xs">({room?.type})</span></span>
+                                                       )}
+                                                    </span>
                                                 </div>
                                                 <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${stay.status === 'Checked-Out' ? 'bg-gray-100 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
                                                    {stay.status === 'Checked-Out' ? 'Completed' : 'Active'}
@@ -513,11 +591,17 @@ const Customers = () => {
                                              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                                                  <div className="bg-gray-50 p-2 rounded border border-gray-100">
                                                     <span className="text-[10px] text-gray-400 uppercase font-bold block">Check In</span>
-                                                    <span className="font-bold text-gray-800">{new Date(stay.checkIn).toLocaleString()}</span>
+                                                    <span className="font-bold text-gray-800">{(() => {
+                                                       const d = new Date(stay.checkIn);
+                                                       return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                                    })()}</span>
                                                  </div>
                                                  <div className="bg-gray-50 p-2 rounded border border-gray-100">
                                                     <span className="text-[10px] text-gray-400 uppercase font-bold block">Check Out</span>
-                                                    <span className="font-bold text-gray-800">{stay.actualCheckOut ? new Date(stay.actualCheckOut).toLocaleString() : new Date(stay.checkOut).toLocaleDateString()}</span>
+                                                    <span className="font-bold text-gray-800">{(() => {
+                                                       const d = stay.actualCheckOut ? new Date(stay.actualCheckOut) : new Date(stay.checkOut);
+                                                       return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                                    })()}</span>
                                                  </div>
                                              </div>
                                              

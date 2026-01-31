@@ -14,6 +14,13 @@ const Employees = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedEmp, setSelectedEmp] = useState(null);
+  const [joiningDateFocused, setJoiningDateFocused] = useState(false);
+  
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+  };
   
   const [formData, setFormData] = useState({
     name: '',
@@ -455,7 +462,10 @@ const Employees = () => {
                                      <p className="text-[10px] uppercase text-gray-400 font-bold leading-none mb-1">Joined On</p>
                                      <span className="leading-none">
                                         {selectedEmp.joiningDate && !isNaN(new Date(selectedEmp.joiningDate)) 
-                                          ? new Date(selectedEmp.joiningDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) 
+                                          ? (() => {
+                                             const d = new Date(selectedEmp.joiningDate);
+                                             return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+                                            })()
                                           : 'N/A'}
                                      </span>
                                   </div>
@@ -628,7 +638,17 @@ const Employees = () => {
                                   <label className="block text-xs font-bold text-gray-600 mb-1">Joining Date</label>
                                   <div className="relative">
                                      <Calendar size={14} className="absolute left-3 top-2.5 text-gray-400" />
-                                     <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleChange} className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all" required />
+                                     <input 
+                                        type={joiningDateFocused ? "date" : "text"}
+                                        name="joiningDate" 
+                                        value={joiningDateFocused ? formData.joiningDate : formatDate(formData.joiningDate)} 
+                                        onChange={handleChange}
+                                        onFocus={() => setJoiningDateFocused(true)}
+                                        onBlur={() => setJoiningDateFocused(false)}
+                                        className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all" 
+                                        placeholder="Select Joining Date"
+                                        required 
+                                     />
                                   </div>
                                </div>
                                <div>

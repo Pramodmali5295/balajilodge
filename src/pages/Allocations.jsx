@@ -1,10 +1,10 @@
-﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore'; 
-import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download } from 'lucide-react';
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 import html2pdf from 'html2pdf.js';
 
@@ -54,7 +54,7 @@ const Allocations = () => {
   const [formData, setFormData] = useState({
     guestName: '',
     guestPhone: '',
-    guestIdProofType: 'PAN Card',
+    guestIdProofType: '',
     guestIdNumber: '',
     guestAddress: '',
     customerType: 'New', 
@@ -114,7 +114,7 @@ const Allocations = () => {
       // Ensure we start with a fresh form for new bookings
       setFormData(prev => ({
         ...prev,
-        guestName: '', guestPhone: '', guestIdProofType: 'PAN Card', guestIdNumber: '', guestAddress: '',
+        guestName: '', guestPhone: '', guestIdProofType: '', guestIdNumber: '', guestAddress: '',
         customerType: 'New', employeeId: '',
         advanceAmount: 0, paymentType: 'Cash', narration: '', guestGstin: '', companyName: '',
         registrationNumber: '', externalBookingId: '', existingCustomerId: null,
@@ -139,6 +139,7 @@ const Allocations = () => {
   // Booking Sources State
   // Booking Sources State - Synced with DB
   const [bookingSources, setBookingSources] = useState([]);
+  const [focusedFields, setFocusedFields] = useState({});
 
   // Fetch/Sync Booking Sources
   useEffect(() => {
@@ -347,7 +348,17 @@ const Allocations = () => {
     } else if (name === 'guestGstin') {
         value = value.toUpperCase().slice(0, 15);
     } else if (name === 'companyName') {
-        value = value.toUpperCase(); // Optional, but usually company names are proper case or specific format. Strict uppercase might be too much, but let's keep it simple or remove if user prefers raw. removing uppercase enforcement to be safe.
+        value = value.toUpperCase(); 
+    } else if (name === 'guestIdNumber') {
+        if (formData.guestIdProofType === 'Aadhar Card') {
+             value = value.replace(/\D/g, '').slice(0, 12);
+        } else if (formData.guestIdProofType === 'PAN Card') {
+             value = value.toUpperCase().slice(0, 10);
+        } else if (formData.guestIdProofType === 'Voter ID') {
+             value = value.toUpperCase().slice(0, 10);
+        } else if (formData.guestIdProofType === 'Driving License') {
+             value = value.toUpperCase().slice(0, 16);
+        }
     }
 
     setFormData(prev => {
@@ -457,7 +468,7 @@ const Allocations = () => {
     setFormData({
       guestName: '',
       guestPhone: '',
-      guestIdProofType: 'PAN Card',
+      guestIdProofType: '',
       guestIdNumber: '',
       guestAddress: '',
       guestGstin: '',
@@ -524,6 +535,19 @@ const Allocations = () => {
     if (!formData.guestIdNumber.trim()) {
         alert("ID Number is required.");
         return;
+    }
+
+    // Specific ID Validation
+    const idType = formData.guestIdProofType;
+    const idNum = formData.guestIdNumber.trim();
+
+    if (idType === 'Aadhar Card' && !/^\d{12}$/.test(idNum)) {
+         alert("Aadhar Number must be exactly 12 digits.");
+         return;
+    }
+    if (idType === 'PAN Card' && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(idNum)) {
+         alert("Invalid PAN Card Number format.");
+         return;
     }
     if (formData.guestAddress.trim().length < 5) {
         alert("Please enter a valid, complete address.");
@@ -906,7 +930,7 @@ const Allocations = () => {
                    <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">INVOICE DETAILS</div>
                    <div style="display: grid; grid-template-columns: auto auto; gap: 4px 10px; font-size: 11px;">
                       <span style="font-weight: bold;">Invoice No :</span> <span style="font-weight:bold;">${invoiceNumber}</span>
-                      <span style="font-weight: bold;">Date :</span> <span>${new Date().toLocaleDateString()}</span>
+                      <span style="font-weight: bold;">Invoice Date :</span> <span>${(() => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })()}</span>
                       <span style="font-weight: bold;">Arrival :</span> <span>${formatBillDate(allocation.checkIn)}</span>
                       <span style="font-weight: bold;">Departure :</span> <span>${formatBillDate(allocation.checkOut)}</span>
                       <span style="font-weight: bold;">Reg. No :</span> <span>${allocation.registrationNumber || '---'}</span>
@@ -966,7 +990,7 @@ const Allocations = () => {
                </div>
              </div>
 
-             <div style="margin-top: 25px; font-weight:bold; text-decoration: underline; margin-bottom: 5px;">GST Breakdown (HSN Analysis)</div>
+             <div style="margin-top: 25px; font-weight:bold; text-decoration: underline; margin-bottom: 5px;">GST Breakdown</div>
              <table class="gst-analysis">
                <thead>
                  <tr>
@@ -978,9 +1002,9 @@ const Allocations = () => {
                    <th rowspan="2">Total Tax</th>
                  </tr>
                  <tr>
-                   <th>Rate</th>
+                   <th>Tax</th>
                    <th>Amount</th>
-                   <th>Rate</th>
+                   <th>Tax</th>
                    <th>Amount</th>
                  </tr>
                </thead>
@@ -1214,10 +1238,16 @@ const Allocations = () => {
                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="space-y-1">
                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
-                              In: {formatDate(alloc.checkIn)}
+                              In: {(() => {
+                                 const d = new Date(alloc.checkIn);
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                              })()}
                            </div>
                            <div className="flex items-center gap-2 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 w-fit">
-                              Out: {formatDate(alloc.actualCheckOut || alloc.checkOut) || '---'}
+                              Out: {(() => {
+                                 const d = alloc.actualCheckOut ? new Date(alloc.actualCheckOut) : new Date(alloc.checkOut);
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                              })()}
                            </div>
                         </div>
                      </td>
@@ -1354,7 +1384,7 @@ const Allocations = () => {
                            {isAddBookingPage && (
                               <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-6">
                                   <h2 className="text-2xl font-bold text-white">{editingAllocation ? 'Update Booking' : 'Booking Information'}</h2>
-                                  <p className="text-indigo-100 text-sm mt-1">Please fill in all required fields marked with *</p>
+                                  <p className="text-indigo-100 text-sm mt-1">Please fill in all required fields.</p>
                               </div>
                            )}
 
@@ -1429,8 +1459,17 @@ const Allocations = () => {
                                   {/* Row 5: ID Number */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">ID Number</label>
-                                         <input type="text" name="guestIdNumber" value={formData.guestIdNumber} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="ID Number" required />
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Enter ID Proof Number</label>
+                                         <input 
+                                           type="text" 
+                                           name="guestIdNumber" 
+                                           value={formData.guestIdNumber} 
+                                           onChange={handleChange} 
+                                           disabled={!formData.guestIdProofType}
+                                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-100" 
+                                           placeholder={formData.guestIdProofType ? `Enter ${formData.guestIdProofType}` : "Select ID Type first"} 
+                                           required 
+                                         />
                                       </div>
                                   </div>
                               </div>
@@ -1452,71 +1491,81 @@ const Allocations = () => {
                                       <div>
                                          <label className="block text-sm font-semibold text-gray-700 mb-2">Common Arrival</label>
                                          <input 
-                                            type="datetime-local" 
+                                            type={focusedFields.checkIn ? "datetime-local" : "text"}
                                             name="checkIn" 
-                                            value={formData.checkIn} 
-                                            onChange={handleChange} 
+                                            value={focusedFields.checkIn ? formData.checkIn : (formData.checkIn ? formatBillDate(formData.checkIn) : '')} 
+                                            onChange={handleChange}
+                                            onFocus={() => setFocusedFields(prev => ({ ...prev, checkIn: true }))}
+                                            onBlur={() => setFocusedFields(prev => ({ ...prev, checkIn: false }))}
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
+                                            placeholder="Select Arrival Date"
                                          />
                                       </div>
                                       <div>
                                          <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Date</label>
                                          <input 
-                                            type="datetime-local" 
+                                            type={focusedFields.checkOut ? "datetime-local" : "text"}
                                             name="checkOut" 
-                                            value={formData.checkOut} 
-                                            onChange={handleChange} 
+                                            value={focusedFields.checkOut ? formData.checkOut : (formData.checkOut ? formatBillDate(formData.checkOut) : '')} 
+                                            onChange={handleChange}
+                                            onFocus={() => setFocusedFields(prev => ({ ...prev, checkOut: true }))}
+                                            onBlur={() => setFocusedFields(prev => ({ ...prev, checkOut: false }))}
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
+                                            placeholder="Select Departure Date"
                                          />
                                       </div>
                                   </div>
 
 
                                   {/* Rows Table Header */}
-                                  <div className="overflow-x-auto no-scrollbar">
+                                  <div className="overflow-x-auto custom-scrollbar pb-2">
                                      <div className="min-w-[1000px]">
-                                        <div className="grid grid-cols-12 gap-3 mb-2 px-2">
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room No</div>
-                                           <div className="col-span-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">Persons</div>
-                                           <div className="col-span-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">Days</div>
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Booking Type</div>
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room Type</div>
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Price / Day</div>
-                                           <div className="col-span-1 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</div>
+                                        <div className="grid grid-cols-12 gap-4 mb-3 px-3 py-2 bg-gray-50/50 rounded-lg border border-gray-100">
+                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room No</div>
+                                           <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Persons</div>
+                                           <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Days</div>
+                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Booking Type</div>
+                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
+                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Price / Day</div>
+                                           <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Total</div>
                                            <div className="col-span-1"></div>
                                         </div>
 
                                         <div className="space-y-3">
                                            {formData.roomSelections.map((selection, idx) => (
-                                              <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-white p-2 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-200 transition-all">
+                                              <div key={idx} className="grid grid-cols-12 gap-4 items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all group">
                                                  {/* Room Select */}
                                                  <div className="col-span-2">
-                                                    <select 
-                                                       value={selection.roomId} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'roomId', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white outline-none"
-                                                    >
-                                                       <option value="">Select Room</option>
-                                                       {/* Current Selection (force visible) */}
-                                                       {selection.roomId && rooms.find(r => r.id === selection.roomId) && (
-                                                          <option value={selection.roomId}>
-                                                             {rooms.find(r => r.id === selection.roomId).roomNumber} (Selected)
-                                                          </option>
-                                                       )}
-                                                       {/* Other Available Rooms */}
-                                                       {getAvailableRoomsForRow(idx).filter(r => r.id !== selection.roomId).map(r => (
-                                                          <option key={r.id} value={r.id}>{r.roomNumber}</option>
-                                                       ))}
-                                                    </select>
+                                                    <div className="relative">
+                                                       <select 
+                                                          value={selection.roomId} 
+                                                          onChange={(e) => updateRoomSelection(idx, 'roomId', e.target.value)}
+                                                          className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
+                                                       >
+                                                          <option value="">Select Room</option>
+                                                          {/* Current Selection (force visible) */}
+                                                          {selection.roomId && rooms.find(r => r.id === selection.roomId) && (
+                                                             <option value={selection.roomId}>
+                                                                {rooms.find(r => r.id === selection.roomId).roomNumber}
+                                                             </option>
+                                                          )}
+                                                          {/* Other Available Rooms */}
+                                                          {getAvailableRoomsForRow(idx).filter(r => r.id !== selection.roomId).map(r => (
+                                                             <option key={r.id} value={r.id}>{r.roomNumber}</option>
+                                                          ))}
+                                                       </select>
+                                                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                    </div>
                                                  </div>
 
                                                  {/* Number of Persons */}
                                                  <div className="col-span-1">
                                                     <input 
                                                        type="number" 
+                                                       min="1"
                                                        value={selection.numberOfGuests} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'numberOfGuests', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center outline-none"
+                                                       onChange={(e) => updateRoomSelection(idx, 'numberOfGuests', Math.max(1, parseInt(e.target.value) || 0))}
+                                                       className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none no-spinners transition-all"
                                                        placeholder="Guests"
                                                     />
                                                  </div>
@@ -1525,72 +1574,86 @@ const Allocations = () => {
                                                  <div className="col-span-1">
                                                     <input 
                                                        type="number" 
+                                                       min="1"
                                                        value={selection.stayDuration} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'stayDuration', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center outline-none"
+                                                       onChange={(e) => updateRoomSelection(idx, 'stayDuration', Math.max(1, parseInt(e.target.value) || 0))}
+                                                       className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none no-spinners transition-all"
                                                        placeholder="Days"
                                                     />
                                                  </div>
 
-                                                 {/* Booking Type */}
-                                                 <div className="col-span-2">
-                                                    <select 
-                                                       value={selection.bookingPlatform} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'bookingPlatform', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold outline-none"
-                                                    >
-                                                       {bookingSources.map(source => (
-                                                          <option key={source} value={source}>{source}</option>
-                                                       ))}
-                                                    </select>
-                                                 </div>
+                                                  {/* Booking Type */}
+                                                  <div className="col-span-2">
+                                                     <div className="flex gap-1">
+                                                        <div className="relative flex-1">
+                                                           <select 
+                                                              value={selection.bookingPlatform} 
+                                                              onChange={(e) => {
+                                                                 if (e.target.value === '__ADD_NEW__') {
+                                                                    setShowAddSourceModal(true);
+                                                                 } else {
+                                                                    updateRoomSelection(idx, 'bookingPlatform', e.target.value);
+                                                                 }
+                                                              }}
+                                                              className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
+                                                           >
+                                                              {bookingSources.map(source => (
+                                                                 <option key={source} value={source}>{source}</option>
+                                                              ))}
+                                                              <option value="__ADD_NEW__" className="text-indigo-600 font-bold">+ Add New Source</option>
+                                                           </select>
+                                                           <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                        </div>
+                                                     </div>
+                                                  </div>
 
                                                  {/* Room Type Label */}
                                                  <div className="col-span-2">
-                                                    <div className={`px-3 py-2 rounded-lg text-xs font-black uppercase text-center ${selection.roomType === 'AC' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                                                       {selection.roomType || 'Select Room'}
+                                                    <div className={`px-3 py-2.5 rounded-lg text-xs font-black uppercase text-center border ${selection.roomType === 'AC' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                                       {selection.roomType || '-'}
                                                     </div>
                                                  </div>
 
-                                                 {/* Charges per Day */}
-                                                 <div className="col-span-2 relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-black">₹</span>
-                                                    <input 
-                                                       type="number" 
-                                                       value={selection.basePrice} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'basePrice', e.target.value)}
-                                                       className="w-full pl-7 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold outline-none"
-                                                       placeholder="0"
-                                                    />
-                                                 </div>
+                                                  {/* Price / Day Input */}
+                                                  <div className="col-span-2 relative">
+                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                                                     <input 
+                                                        type="number" 
+                                                        min="0"
+                                                        value={selection.basePrice} 
+                                                        onChange={(e) => updateRoomSelection(idx, 'basePrice', Math.max(0, parseInt(e.target.value) || 0))}
+                                                        className="w-full pl-6 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 no-spinners transition-all"
+                                                        placeholder="Price"
+                                                     />
+                                                  </div>
 
                                                  {/* Line Total */}
                                                  <div className="col-span-1 text-right">
-                                                    <p className="text-sm font-black text-indigo-600">
+                                                    <p className="text-sm font-black text-indigo-600 truncate">
                                                        ₹{( (parseFloat(selection.basePrice) || 0) * (parseInt(selection.stayDuration) || 1) ).toLocaleString('en-IN')}
                                                     </p>
                                                  </div>
 
                                                  {/* Actions */}
-                                                 <div className="col-span-1 flex justify-center">
+                                                 <div className="col-span-1 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button 
                                                        type="button" 
                                                        onClick={() => removeRoomSelection(idx)}
-                                                       className="p-1.5 text-gray-300 hover:text-rose-500 transition-colors"
+                                                       className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                                        title="Remove Room"
                                                     >
-                                                       <Trash2 size={16} />
+                                                       <Trash2 size={18} />
                                                     </button>
                                                  </div>
                                               </div>
                                            ))}
 
                                            {/* Add Room Button Area */}
-                                           <div className="pt-2 flex justify-start">
+                                           <div className="pt-3">
                                               <button 
                                                  type="button" 
                                                  onClick={addRoomSelection}
-                                                 className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 shadow-sm"
+                                                 className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all"
                                               >
                                                  <Plus size={18} />
                                                  Add Another Room
@@ -1694,13 +1757,14 @@ const Allocations = () => {
                                                  name="paymentType" 
                                                  value={formData.paymentType} 
                                                  onChange={handleChange} 
-                                                 className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all appearance-none" 
+                                                 className="w-full pl-12 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all appearance-none cursor-pointer" 
                                               >
                                                  <option value="Cash">Cash Payment</option>
                                                  <option value="Bank Deposit">Bank Deposit</option>
                                                  <option value="UPI">UPI</option>
                                                  <option value="Card">Card Payment</option>
                                               </select>
+                                              <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                                           </div>
                                       </div>
                                   </div>
@@ -1853,11 +1917,17 @@ const Allocations = () => {
                            </div>
                            <div>
                               <p className="text-[10px] text-emerald-600 font-bold uppercase">Check-In</p>
-                              <p className="text-xs font-bold text-gray-800">{formatDate(viewingAllocation.checkIn)}</p>
+                              <p className="text-xs font-bold text-gray-800">{(() => {
+                                 const d = new Date(viewingAllocation.checkIn);
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                              })()}</p>
                            </div>
                            <div>
                               <p className="text-[10px] text-rose-600 font-bold uppercase">Check-Out</p>
-                              <p className="text-xs font-bold text-gray-800">{formatDate(viewingAllocation.checkOut)}</p>
+                              <p className="text-xs font-bold text-gray-800">{(() => {
+                                 const d = viewingAllocation.actualCheckOut ? new Date(viewingAllocation.actualCheckOut) : new Date(viewingAllocation.checkOut);
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                              })()}</p>
                            </div>
                            <div>
                               <p className="text-[10px] text-gray-400 font-bold uppercase">Reg Type/No</p>
@@ -1879,7 +1949,7 @@ const Allocations = () => {
                         <table className="w-full text-xs text-left">
                             <tbody className="divide-y divide-gray-100">
                                 <tr>
-                                    <td className="px-4 py-2 font-bold text-gray-600">Room Rate</td>
+                                    <td className="px-4 py-2 font-bold text-gray-600">Total Amount</td>
                                     <td className="px-4 py-2 text-right font-bold text-gray-900">₹{(Number(viewingAllocation.price) || 0).toLocaleString('en-IN')}</td>
                                 </tr>
                                 <tr>
@@ -1898,12 +1968,7 @@ const Allocations = () => {
                         </table>
                      </div>
 
-                     {viewingAllocation.narration && (
-                        <div className="px-3 py-2 bg-amber-50 rounded-lg border border-amber-100 text-[10px] text-amber-900/80">
-                           <span className="font-bold text-amber-900 uppercase tracking-wide mr-1">Note:</span>
-                           {viewingAllocation.narration}
-                        </div>
-                     )}
+
 
                   </div>
                </div>

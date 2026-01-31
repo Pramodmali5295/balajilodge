@@ -166,7 +166,10 @@ const Dashboard = () => {
             </div>
             <div>
               <h2 className="text-sm font-black text-white tracking-tight">Daily Report</h2>
-              <p className="text-blue-100 text-[9px] font-bold mt-0.5">{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-blue-100 text-[9px] font-bold mt-0.5">{(() => {
+                const d = new Date();
+                return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+              })()}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/10 rounded-md backdrop-blur-sm border border-white/20">
@@ -294,7 +297,10 @@ const Dashboard = () => {
                             <td className="px-5 py-3">
                                <div className="flex flex-col">
                                   <span className="text-xs font-black text-gray-800 group-hover:text-indigo-600 transition-colors uppercase tracking-tight truncate max-w-[120px]">{getCustomerName(alloc.customerId)}</span>
-                                  <span className="text-[8px] font-bold text-gray-400 uppercase">IN: {new Date(alloc.checkIn).toLocaleDateString()}</span>
+                                  <span className="text-[8px] font-bold text-gray-400 uppercase">IN: {(() => {
+                                      const d = new Date(alloc.checkIn);
+                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                  })()}</span>
                                </div>
                             </td>
                             <td className="px-5 py-3">
@@ -364,7 +370,7 @@ const Dashboard = () => {
          <div className="bg-white rounded-xl shadow-md border border-gray-100 flex flex-col h-[280px] border-t-4 border-t-amber-500 overflow-hidden">
             <div className="p-4 border-b border-amber-100 flex justify-between items-center bg-amber-50/50 flex-shrink-0">
                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-amber-900 uppercase tracking-widest">Team Overview</h3>
+                  <h3 className="text-sm font-black text-amber-900 uppercase tracking-widest">Staff Overview</h3>
                   <div className="w-5 h-5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-black shadow-sm shadow-amber-100">{stats.totalStaff}</div>
                </div>
                <Link to="/employees" className="text-[9px] font-black text-white hover:bg-amber-600 uppercase tracking-widest px-2.5 py-1.5 bg-amber-500 rounded-lg shadow-md shadow-amber-100 transition-all flex items-center gap-1.5">

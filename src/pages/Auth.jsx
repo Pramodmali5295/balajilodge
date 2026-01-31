@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, UserPlus, User, Lock, Phone, Building2 } from 'lucide-react';
+import { LogIn, UserPlus, User, Lock, Phone, Building2, Eye, EyeOff } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 
 const Auth = () => {
@@ -15,6 +15,8 @@ const Auth = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ const Auth = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
 
     if (!isLogin && formData.password.length < 6) {
         return setError('Password must be at least 6 characters long');
@@ -35,10 +38,14 @@ const Auth = () => {
       setLoading(true);
       if (isLogin) {
         await login(formData.username, formData.password);
+        navigate('/');
       } else {
         await signup(formData.username, formData.password, formData.mobile, formData.lodgeName);
+        // After successful signup, switch to login mode
+        setIsLogin(true);
+        setFormData({ username: formData.username, password: '', mobile: '', lodgeName: '' });
+        setSuccessMessage('Account created successfully! Please sign in with your credentials.');
       }
-      navigate('/');
     } catch (err) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
@@ -55,6 +62,7 @@ const Auth = () => {
   const toggleMode = () => {
       setIsLogin(!isLogin);
       setError('');
+      setSuccessMessage('');
       setFormData({ username: '', password: '', mobile: '', lodgeName: '' });
   };
 
@@ -73,6 +81,7 @@ const Auth = () => {
             </p>
         </div>
 
+        {successMessage && <div className="bg-emerald-500/20 border border-emerald-500/50 text-emerald-100 p-3 rounded-xl mb-6 text-sm text-center font-semibold">{successMessage}</div>}
         {error && <div className="bg-red-500/20 border border-red-500/50 text-red-100 p-3 rounded-xl mb-6 text-sm text-center animate-pulse">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,14 +139,21 @@ const Auth = () => {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300" size={20} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Password"
-                className="w-full bg-indigo-950/50 text-white placeholder-indigo-400 pl-12 pr-4 py-3.5 rounded-xl border border-indigo-500/30 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all font-medium"
+                className="w-full bg-indigo-950/50 text-white placeholder-indigo-400 pl-12 pr-12 py-3.5 rounded-xl border border-indigo-500/30 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all font-medium"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-300 hover:text-indigo-100 transition-colors focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
           </div>
 

@@ -446,11 +446,17 @@ const Rooms = () => {
                              <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div>
                                    <p className="text-rose-400 font-bold mb-0.5">Check In</p>
-                                   <p className="text-rose-800 font-medium">{new Date(activeAlloc.checkIn).toLocaleDateString()}</p>
+                                   <p className="text-rose-800 font-medium">{(() => {
+                                      const d = new Date(activeAlloc.checkIn);
+                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                   })()}</p>
                                 </div>
                                 <div>
                                    <p className="text-rose-400 font-bold mb-0.5">Check Out</p>
-                                   <p className="text-rose-800 font-medium">{new Date(activeAlloc.checkOut).toLocaleDateString()}</p>
+                                   <p className="text-rose-800 font-medium">{(() => {
+                                      const d = new Date(activeAlloc.checkOut);
+                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                   })()}</p>
                                 </div>
                              </div>
                         </div>
