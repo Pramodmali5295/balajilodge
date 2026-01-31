@@ -1,8 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BedDouble, Users, UserCheck, X, CalendarClock, CheckSquare, Clock } from 'lucide-react';
+import { LayoutDashboard, BedDouble, Users, UserCheck, X, CalendarClock, CheckSquare, Clock, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
+  const { logout } = useAuth();
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Add New Customer', path: '/add-booking', icon: <CalendarClock size={20} /> },
@@ -73,6 +75,17 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </NavLink>
           ))}
         </nav>
+
+        {/* User Profile / Logout */}
+        <div className="p-4 border-t border-slate-800">
+             <button
+                onClick={() => logout()}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-bold text-sm text-slate-400 hover:bg-slate-800 hover:text-red-400"
+             >
+                <LogOut size={20} className="group-hover:scale-110 transition-transform" />
+                <span>Sign Out</span>
+             </button>
+        </div>
       </div>
     </>
   );

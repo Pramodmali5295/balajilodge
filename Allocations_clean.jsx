@@ -4,48 +4,9 @@ import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore'; 
-import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download } from 'lucide-react';
-import logoImage from '../assets/logo.jpg';
-import html2pdf from 'html2pdf.js';
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Layers } from 'lucide-react';
 
-// --- Date Formatting Helper ---
-const formatBillDate = (dateStr) => {
-   if (!dateStr) return "---";
-   const d = new Date(dateStr);
-   const day = String(d.getDate()).padStart(2, '0');
-   const month = String(d.getMonth() + 1).padStart(2, '0');
-   const year = d.getFullYear();
-   const hrs = String(d.getHours()).padStart(2, '0');
-   const mins = String(d.getMinutes()).padStart(2, '0');
-   return `${day}-${month}-${year} ${hrs}${mins} HRS`;
-};
-
-// --- Number to Words Helper (Indian Format) ---
-const numberToWords = (num) => {
-   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-   
-   const g = (n) => {
-      if (n === 0) return '';
-      if (n < 20) return a[n];
-      if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
-      if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + g(n % 100) : '');
-      if (n < 100000) return g(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + g(n % 1000) : '');
-      if (n < 10000000) return g(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + g(n % 100000) : '');
-      return g(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + g(n % 10000000) : '');
-   };
-
-   const whole = Math.floor(num);
-   const fraction = Math.round((num - whole) * 100);
-   let str = g(whole);
-   if (str) str += ' Rupees';
-   if (fraction > 0) {
-      str += (str ? ' and ' : '') + g(fraction) + ' Paise';
-   }
-   return (str || 'Zero') + ' Only';
-};
-
-const Allocations = () => {
+const Allocations = () => { // Multi-room test
   const { rooms, employees, customers, allocations } = useAppContext();
   // --- Check-In / Allocation State ---
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -57,33 +18,39 @@ const Allocations = () => {
     guestIdProofType: 'PAN Card',
     guestIdNumber: '',
     guestAddress: '',
-    customerType: 'New', 
+    customerType: 'New',
+    roomIds: [],
+    checkIn: (() => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    })(),
+    checkOut: '',
+    numberOfGuests: 1, // test replacement
     employeeId: '',
-    gstRate: '12',
-    hsnSacNumber: '996311',
+    stayDuration: 1,
+    bookingPlatform: 'Counter',
     advanceAmount: 0,
     paymentType: 'Cash',
     narration: '',
-    registrationNumber: '',
-    externalBookingId: '',
     guestGstin: '',
     companyName: '',
-    checkIn: (() => {
-       const now = new Date();
-       const year = now.getFullYear();
-       const month = String(now.getMonth() + 1).padStart(2, '0');
-       const day = String(now.getDate()).padStart(2, '0');
-       const hours = String(now.getHours()).padStart(2, '0');
-       const minutes = String(now.getMinutes()).padStart(2, '0');
-       return `${year}-${month}-${day}T${hours}:${minutes}`;
-    })(),
+    registrationNumber: '',
+    externalBookingId: '',
+    basePrice: '',
+    gstRate: '12',
+    hsnSacNumber: '',
     roomSelections: [
       {
         roomId: '',
-        roomType: '',
         numberOfGuests: 1,
         stayDuration: 1,
         bookingPlatform: 'Counter',
+        roomType: '',
         basePrice: ''
       }
     ]
@@ -116,20 +83,10 @@ const Allocations = () => {
       setFormData(prev => ({
         ...prev,
         guestName: '', guestPhone: '', guestIdProofType: 'PAN Card', guestIdNumber: '', guestAddress: '',
-        customerType: 'New', employeeId: '',
+        customerType: 'New', roomIds: [], employeeId: '', bookingPlatform: 'Counter',
         advanceAmount: 0, paymentType: 'Cash', narration: '', guestGstin: '', companyName: '',
         registrationNumber: '', externalBookingId: '', existingCustomerId: null,
-        gstRate: localStorage.getItem('defaultGstRate') || '12', hsnSacNumber: '',
-        roomSelections: [
-          {
-            roomId: '',
-            roomType: '',
-            numberOfGuests: 1,
-            stayDuration: 1,
-            bookingPlatform: 'Counter',
-            basePrice: ''
-          }
-        ]
+        basePrice: '', gstRate: '12', hsnSacNumber: ''
       }));
     }
   }, [location.pathname]);
@@ -173,118 +130,31 @@ const Allocations = () => {
   const [newSourceName, setNewSourceName] = useState('');
 
 
-  // Multi-room Helpers
-  const addRoomSelection = () => {
-    setFormData(prev => ({
-      ...prev,
-      roomSelections: [
-        ...prev.roomSelections,
-        {
-          roomId: '',
-          roomType: '',
-          numberOfGuests: 1,
-          stayDuration: 1,
-          bookingPlatform: 'Counter',
-          basePrice: ''
-        }
-      ]
-    }));
-  };
+  // Helpers
+  const getCustomerName = useCallback((id) => customers.find(c => String(c.id) === String(id))?.name || 'Unknown', [customers]);
+  const getRoomNumber = useCallback((id) => rooms.find(r => String(r.id) === String(id))?.roomNumber || 'Unknown', [rooms]);
+  const getEmployeeName = (id) => employees.find(e => String(e.id) === String(id))?.name || 'Unknown';
 
-  const removeRoomSelection = (index) => {
-    if (formData.roomSelections.length <= 1) return;
-    setFormData(prev => ({
-      ...prev,
-      roomSelections: prev.roomSelections.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateRoomSelection = (index, field, value) => {
-    setFormData(prev => {
-      const newSelections = [...prev.roomSelections];
-      newSelections[index] = { ...newSelections[index], [field]: value };
-      
-      // If roomId changes, update roomType
-      if (field === 'roomId') {
-        const room = rooms.find(r => r.id === value);
-        if (room) {
-          newSelections[index].roomType = room.type;
-        }
-      }
-
-      // If stayDuration changes, update CheckOut Date (Departure Date)
-      if (field === 'stayDuration' && prev.checkIn) {
-          const days = parseInt(value) || 1;
-          const checkInDate = new Date(prev.checkIn);
-          const checkOutDate = new Date(checkInDate.getTime() + days * 24 * 60 * 60 * 1000);
-          
-          const year = checkOutDate.getFullYear();
-          const month = String(checkOutDate.getMonth() + 1).padStart(2, '0');
-          const day = String(checkOutDate.getDate()).padStart(2, '0');
-          const hours = String(checkOutDate.getHours()).padStart(2, '0');
-          const minutes = String(checkOutDate.getMinutes()).padStart(2, '0');
-          
-          // Return new state with updated CheckOut Date
-          return { 
-              ...prev, 
-              checkOut: `${year}-${month}-${day}T${hours}:${minutes}`,
-              roomSelections: newSelections 
-          };
-      }
-      
-      return { ...prev, roomSelections: newSelections };
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
   };
 
-  // Filter available rooms (per row context)
-  const getAvailableRoomsForRow = (currentIndex) => {
-    const selectedOtherIds = formData.roomSelections
-      .filter((_, i) => i !== currentIndex)
-      .map(s => s.roomId)
-      .filter(id => id !== '');
-
-    return rooms.filter(r => {
-      const isNotBooked = r.status !== 'Booked';
-      const hasActiveAllocation = allocations.some(a => String(a.roomId) === String(r.id) && (a.status === 'Active' || !a.status));
-      const notSelectedElsewhere = !selectedOtherIds.includes(r.id);
-      return isNotBooked && !hasActiveAllocation && notSelectedElsewhere;
-    });
-  };
-  // Helper Functions
-  const getCustomerName = useCallback((id) => {
-    return customers.find(c => String(c.id) === String(id))?.name || 'Unknown Guest';
-  }, [customers]);
-
-  const getRoomNumber = useCallback((id) => {
-    return rooms.find(r => String(r.id) === String(id))?.roomNumber || '---';
-  }, [rooms]);
-
-  const getEmployeeName = useCallback((id) => {
-    return employees.find(e => String(e.id) === String(id))?.name || '---';
-  }, [employees]);
-
-  const formatDate = useCallback((dateStr) => {
-    if (!dateStr) return '---';
-    try {
-      const d = new Date(dateStr);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      const hours = String(d.getHours()).padStart(2, '0');
-      const minutes = String(d.getMinutes()).padStart(2, '0');
-      return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch (e) {
-      return '---';
-    }
-  }, []);
-
-  const availableRooms = useMemo(() => {
-     return rooms.filter(r => {
-        const isNotBooked = r.status !== 'Booked';
-        const hasActiveAllocation = allocations.some(a => String(a.roomId) === String(r.id) && (a.status === 'Active' || !a.status));
-        return isNotBooked && !hasActiveAllocation;
-     });
-  }, [rooms, allocations]);
+  // Filter available rooms
+  const availableRooms = rooms.filter(r => {
+    const isNotBooked = r.status !== 'Booked';
+    const hasActiveAllocation = allocations.some(a => String(a.roomId) === String(r.id) && (a.status === 'Active' || !a.status));
+    const typeMatches = selectedRoomType === 'All' || !selectedRoomType || r.type === selectedRoomType;
+    return isNotBooked && !hasActiveAllocation && typeMatches;
+  });
 
   // Statistics
   const stats = useMemo(() => {
@@ -311,14 +181,12 @@ const Allocations = () => {
   const filteredAllocations = useMemo(() => {
     return allocations.filter(alloc => {
       const custName = getCustomerName(alloc.customerId).toLowerCase();
-      const allRoomNums = alloc.roomSelections 
-        ? alloc.roomSelections.map(s => getRoomNumber(s.roomId)).join(' ').toLowerCase()
-        : getRoomNumber(alloc.roomId).toLowerCase();
+      const roomNum = getRoomNumber(alloc.roomId).toLowerCase();
       const regNo = (alloc.registrationNumber || '').toLowerCase();
       const bookId = (alloc.externalBookingId || '').toLowerCase();
       const search = allocationSearch.toLowerCase();
       
-      const matchesSearch = custName.includes(search) || allRoomNums.includes(search) || regNo.includes(search) || bookId.includes(search);
+      const matchesSearch = custName.includes(search) || roomNum.includes(search) || regNo.includes(search) || bookId.includes(search);
       // Live tab: Show Active bookings (or bookings without status for backward compatibility)
       // History tab: Show ONLY Checked-Out bookings
       const matchesTab = statusTab === 'Live' 
@@ -349,31 +217,17 @@ const Allocations = () => {
     setFormData(prev => {
        const newData = { ...prev, [name]: value };
        
-       // Auto-calculate checkout when check-in changes (Keep Duration Constant)
-       if (name === 'checkIn' && value) {
+       // Auto-calculate checkout when check-in changes
+       if (name === 'checkIn' && value && prev.stayDuration) {
            const checkInDate = new Date(value);
-           const duration = parseInt(prev.roomSelections[0]?.stayDuration) || 1;
-           const checkOutDate = new Date(checkInDate.getTime() + duration * 24 * 60 * 60 * 1000);
+           const days = parseInt(prev.stayDuration) || 1;
+           const checkOutDate = new Date(checkInDate.getTime() + days * 24 * 60 * 60 * 1000);
            const year = checkOutDate.getFullYear();
            const month = String(checkOutDate.getMonth() + 1).padStart(2, '0');
            const day = String(checkOutDate.getDate()).padStart(2, '0');
            const hours = String(checkOutDate.getHours()).padStart(2, '0');
            const minutes = String(checkOutDate.getMinutes()).padStart(2, '0');
            newData.checkOut = `${year}-${month}-${day}T${hours}:${minutes}`;
-       }
-       
-       // Auto-calculate duration when checkout changes
-       if (name === 'checkOut' && value && prev.checkIn) {
-           const checkInDate = new Date(prev.checkIn);
-           const checkOutDate = new Date(value);
-           const diffTime = checkOutDate - checkInDate;
-           let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-           if (diffDays < 1) diffDays = 1;
-           
-           newData.roomSelections = prev.roomSelections.map(s => ({
-               ...s,
-               stayDuration: diffDays
-           }));
        }
        
        // Auto-lookup for returning guests (only for new bookings)
@@ -461,7 +315,10 @@ const Allocations = () => {
       registrationNumber: '',
       externalBookingId: '',
       customerType: 'New',
+      numberOfGuests: 1,
+      roomIds: [],
       employeeId: '',
+      stayDuration: 1,
       checkIn: (() => {
          const now = new Date();
          const year = now.getFullYear();
@@ -471,32 +328,15 @@ const Allocations = () => {
          const minutes = String(now.getMinutes()).padStart(2, '0');
          return `${year}-${month}-${day}T${hours}:${minutes}`;
       })(),
-      checkOut: (() => {
-         const now = new Date();
-         now.setDate(now.getDate() + 1);
-         const year = now.getFullYear();
-         const month = String(now.getMonth() + 1).padStart(2, '0');
-         const day = String(now.getDate()).padStart(2, '0');
-         const hours = String(now.getHours()).padStart(2, '0');
-         const minutes = String(now.getMinutes()).padStart(2, '0');
-         return `${year}-${month}-${day}T${hours}:${minutes}`;
-      })(),
+      checkOut: '',
       paymentType: 'Cash',
+      bookingPlatform: 'Counter',
       advanceAmount: 0,
       narration: '',
       existingCustomerId: null,
-      gstRate: localStorage.getItem('defaultGstRate') || '12',
-      hsnSacNumber: '996311',
-      roomSelections: [
-        {
-          roomId: '',
-          roomType: '',
-          numberOfGuests: 1,
-          stayDuration: 1,
-          bookingPlatform: 'Counter',
-          basePrice: ''
-        }
-      ]
+      basePrice: '',
+      gstRate: '12',
+      hsnSacNumber: ''
     });
     if (isAddBookingPage) {
       navigate('/pending');
@@ -525,13 +365,12 @@ const Allocations = () => {
         alert("Please enter a valid, complete address.");
         return;
     }
-    if (formData.roomSelections.some(s => !s.roomId)) {
-        alert("Please select a room for all rows.");
+    if (formData.roomIds.length === 0) {
+        alert("Please select at least one room.");
         return;
     }
-    // Check if any room has invalid duration or guests
-    if (formData.roomSelections.some(s => parseInt(s.stayDuration) < 1 || parseInt(s.numberOfGuests) < 1)) {
-        alert("Number of guests and days must be at least 1.");
+    if (new Date(formData.checkOut) <= new Date(formData.checkIn)) {
+        alert("Check-out time must be AFTER Check-in time.");
         return;
     }
     // -------------------
@@ -579,130 +418,99 @@ const Allocations = () => {
 
       const allocationsCollection = collection(db, "allocations");
       
-      // Calculate Aggregated Data
-      const gstRate = parseFloat(formData.gstRate) || 0;
-      let totalBasePrice = 0;
-      let totalGuests = 0;
-      let maxDuration = 0;
-      
-      const selectionsForDb = formData.roomSelections.map(s => {
-         const bp = parseFloat(s.basePrice) || 0;
-         const dur = parseInt(s.stayDuration) || 1;
-         totalBasePrice += (bp * dur);
-         totalGuests += (parseInt(s.numberOfGuests) || 1);
-         if (dur > maxDuration) maxDuration = dur;
-         
-         return {
-            roomId: s.roomId,
-            roomType: s.roomType || '',
-            numberOfGuests: parseInt(s.numberOfGuests) || 1,
-            stayDuration: dur,
-            bookingPlatform: s.bookingPlatform || 'Counter',
-            basePrice: bp
-         };
-      });
-
-      const finalPrice = totalBasePrice * (1 + (gstRate / 100));
-      const advanceVal = parseFloat(formData.advanceAmount || 0);
-      const remainingVal = finalPrice - advanceVal;
-
-      const checkInDate = new Date(formData.checkIn);
-      const checkOutDate = new Date(checkInDate.getTime() + maxDuration * 24 * 60 * 60 * 1000);
-
       if (editingAllocation) {
-          // Update Existing Group Allocation
-          // Release old rooms associated with this allocation first
-          const oldRooms = editingAllocation.roomSelections || [{ roomId: editingAllocation.roomId }];
-          for (const s of oldRooms) {
-             if (s.roomId) {
-                await updateDoc(doc(db, "rooms", s.roomId), { status: "Available" });
-             }
-          }
+          // Update Existing Allocation (Single update behavior)
+          const selection = formData.roomSelections[0];
+          const roomId = selection.roomId;
+          const basePrice = parseFloat(selection.basePrice) || 0;
+          const gstRate = parseFloat(formData.gstRate) || 0;
+          const duration = parseInt(selection.stayDuration) || 1;
+          const oneDayInclusive = basePrice * (1 + (gstRate / 100));
+          const finalPrice = oneDayInclusive * duration;
           
+          const advanceVal = parseFloat(formData.advanceAmount || 0);
+          const remainingVal = finalPrice - advanceVal;
+
           await updateDoc(doc(db, "allocations", editingAllocation.id), {
              customerId: newCustomerId,
-             roomSelections: selectionsForDb,
-             roomId: selectionsForDb[0].roomId, // Backward compatibility
+             roomId: roomId,
              employeeId: formData.employeeId,
              checkIn: formData.checkIn,
-             checkOut: checkOutDate.toISOString(),
-             numberOfGuests: totalGuests,
+             checkOut: formData.checkOut,
+             numberOfGuests: parseInt(selection.numberOfGuests, 10) || 1,
              advanceAmount: advanceVal,
              remainingAmount: remainingVal,
              paymentType: formData.paymentType || 'Cash',
              narration: formData.narration || '',
-             bookingPlatform: selectionsForDb[0].bookingPlatform || 'Counter',
+             bookingPlatform: selection.bookingPlatform || 'Counter',
              registrationNumber: formData.registrationNumber || '',
              externalBookingId: formData.externalBookingId || '',
-             stayDuration: maxDuration,
+             stayDuration: parseInt(selection.stayDuration) || 1,
              hsnSacNumber: formData.hsnSacNumber || '',
-             basePrice: totalBasePrice / maxDuration, // Legacy average
+             basePrice: basePrice,
              gstRate: gstRate,
              price: finalPrice
           });
           
-          // Re-mark new rooms as booked
-          for (const s of selectionsForDb) {
-             await updateDoc(doc(db, "rooms", s.roomId), { status: "Booked" });
-          }
-
           setEditingAllocation(null);
       } else {
-          // Create New Consolidated Allocation
-          await addDoc(allocationsCollection, {
-             customerId: newCustomerId,
-             roomSelections: selectionsForDb,
-             roomId: selectionsForDb[0].roomId, // Legacy compatibility
-             employeeId: formData.employeeId,
-             checkIn: formData.checkIn,
-             checkOut: checkOutDate.toISOString(),
-             numberOfGuests: totalGuests,
-             basePrice: totalBasePrice / maxDuration, 
-             gstRate: gstRate,
-             price: finalPrice,
-             status: 'Active',
-             advanceAmount: advanceVal,
-             remainingAmount: remainingVal,
-             paymentType: formData.paymentType || 'Cash',
-             narration: formData.narration || '',
-             bookingPlatform: selectionsForDb[0].bookingPlatform || 'Counter',
-             registrationNumber: formData.registrationNumber || '',
-             externalBookingId: formData.externalBookingId || '',
-             stayDuration: maxDuration,
-             hsnSacNumber: formData.hsnSacNumber || ''
-          });
+          // Create New Allocation(s)
+          for (let i = 0; i < formData.roomSelections.length; i++) {
+             const selection = formData.roomSelections[i];
+             const roomId = selection.roomId;
+             if (!roomId) continue;
 
-          // Mark all selected rooms as Booked
-          for (const s of selectionsForDb) {
-             const roomRef = doc(db, "rooms", s.roomId);
+             const roomBasePrice = parseFloat(selection.basePrice) || 0;
+             const gstRate = parseFloat(formData.gstRate) || 0;
+             const duration = parseInt(selection.stayDuration) || 1;
+             const oneDayInclusive = roomBasePrice * (1 + (gstRate / 100));
+             const finalPrice = oneDayInclusive * duration;
+             
+             // Advance is usually applied only to the first room in a group booking for internal balance, 
+             // or split. Here we apply it to the first room to stay consistent.
+             const advanceVal = i === 0 ? parseFloat(formData.advanceAmount || 0) : 0;
+             const remainingVal = finalPrice - advanceVal;
+
+             await addDoc(allocationsCollection, {
+                customerId: newCustomerId,
+                roomId: roomId,
+                employeeId: formData.employeeId,
+                checkIn: formData.checkIn,
+                checkOut: formData.checkOut,
+                numberOfGuests: parseInt(selection.numberOfGuests, 10) || 1,
+                basePrice: roomBasePrice,
+                gstRate: gstRate,
+                price: finalPrice,
+                status: 'Active',
+                advanceAmount: advanceVal,
+                remainingAmount: remainingVal,
+                paymentType: formData.paymentType || 'Cash',
+                narration: formData.narration || '',
+                bookingPlatform: selection.bookingPlatform || 'Counter',
+                registrationNumber: formData.registrationNumber || '',
+                externalBookingId: formData.externalBookingId || '',
+                stayDuration: parseInt(selection.stayDuration) || 1,
+                hsnSacNumber: formData.hsnSacNumber || ''
+             });
+             const roomRef = doc(db, "rooms", roomId);
              await updateDoc(roomRef, { status: "Booked" });
           }
       }
       
-      if(formData.gstRate) localStorage.setItem('defaultGstRate', formData.gstRate);
-
       setFormData({
-         guestName: '', guestPhone: '', guestIdProofType: 'PAN Card', guestIdNumber: '', guestAddress: '', guestGstin: '', companyName: '', registrationNumber: '', externalBookingId: '', customerType: 'New',
-         employeeId: '', gstRate: localStorage.getItem('defaultGstRate') || '12', hsnSacNumber: '', advanceAmount: 0, paymentType: 'Cash', narration: '', 
+         guestName: '', guestPhone: '', guestIdProofType: '', guestIdNumber: '', guestAddress: '', guestGstin: '', companyName: '', registrationNumber: '', externalBookingId: '', customerType: 'New',
+         roomIds: [], employeeId: '', 
+         stayDuration: 1, bookingPlatform: 'Counter', advanceAmount: 0, paymentType: 'Cash', narration: '', 
          checkIn: (() => {
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0,16);
          })(),
-         roomSelections: [
-           {
-             roomId: '',
-             roomType: '',
-             numberOfGuests: 1,
-             stayDuration: 1,
-             bookingPlatform: 'Counter',
-             basePrice: ''
-           }
-         ],
+         checkOut: (() => {
+            const tmr = new Date(Date.now() + 86400000);
+            tmr.setMinutes(tmr.getMinutes() - tmr.getTimezoneOffset());
+            return tmr.toISOString().slice(0,16);
+         })(),
          existingCustomerId: null
       });
 
@@ -718,24 +526,16 @@ const Allocations = () => {
     setIsSubmitting(false);
   };
 
-  const handleCheckOut = async (allocationId) => {
+  const handleCheckOut = async (allocationId, roomId) => {
     if(window.confirm("Confirm guest check-out?")) {
         try {
             setIsSubmitting(true);
-            const alloc = allocations.find(a => a.id === allocationId);
-            if (!alloc) return;
-
             await updateDoc(doc(db, "allocations", allocationId), { 
                 status: 'Checked-Out',
                 actualCheckOut: new Date().toISOString()
             });
-
-            // Release all rooms
-            const roomsToRelease = alloc.roomSelections || [{ roomId: alloc.roomId }];
-            for (const s of roomsToRelease) {
-               if (s.roomId) {
-                  await updateDoc(doc(db, "rooms", s.roomId), { status: 'Available' });
-               }
+            if (roomId) {
+               await updateDoc(doc(db, "rooms", roomId), { status: 'Available' });
             }
         } catch (error) {
             console.error("Check-out failed", error);
@@ -755,45 +555,60 @@ const Allocations = () => {
      }
   };
 
-  const handlePrintBill = async (allocation, action = 'print') => {
+  const handlePrintBill = async (allocation) => {
      const cust = customers.find(c => String(c.id) === String(allocation.customerId));
      const room = rooms.find(r => String(r.id) === String(allocation.roomId));
      const employee = employees.find(e => String(e.id) === String(allocation.employeeId));
      
      // Calculations
-     const gstRate = Number(allocation.gstRate || 0);
-     const selections = allocation.roomSelections || [{ 
-         roomId: allocation.roomId, 
-         numberOfGuests: allocation.numberOfGuests || 1, 
-         stayDuration: allocation.stayDuration || 1, 
-         bookingPlatform: allocation.bookingPlatform || 'Counter',
-         basePrice: allocation.basePrice,
-         roomType: rooms.find(r => String(r.id) === String(allocation.roomId))?.type || ''
-     }];
-
-     let taxableValue = 0;
-     let totalTax = 0;
+     const duration = parseInt(allocation.stayDuration) || 1;
+     const totalInclusivePrice = Number(allocation.price) || 0;
+     const gstRate = Number(allocation.gstRate || room?.gstRate || 0);
+     const basePricePerDay = Number(allocation.basePrice) || (totalInclusivePrice / (1 + (gstRate/100)) / duration) || 0;
      
-     const roomWiseGst = selections.map(s => {
-         const bp = parseFloat(s.basePrice) || 0;
-         const dur = parseInt(s.stayDuration) || 1;
-         const lineTaxable = bp * dur;
-         const lineGst = lineTaxable * (gstRate / 100);
-         taxableValue += lineTaxable;
-         totalTax += lineGst;
-         return {
-             ...s,
-             lineTaxable,
-             lineCgst: lineGst / 2,
-             lineSgst: lineGst / 2,
-             lineTotalTax: lineGst
-         };
-     });
-
-     const totalInclusivePrice = taxableValue + totalTax;
+     const taxableValue = basePricePerDay * duration;
+     const totalTax = totalInclusivePrice - taxableValue;
      const cgstAmount = totalTax / 2;
      const sgstAmount = totalTax / 2;
+     
      const advanceAmount = Number(allocation.advanceAmount) || 0;
+
+     // --- Date Formatting Helper ---
+     const formatBillDate = (dateStr) => {
+        if (!dateStr) return "---";
+        const d = new Date(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hrs = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${day}-${month}-${year} ${hrs}${mins} HRS`;
+     };
+
+     // --- Number to Words Helper (Indian Format) ---
+     const numberToWords = (num) => {
+        const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        
+        const g = (n) => {
+           if (n === 0) return '';
+           if (n < 20) return a[n];
+           if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
+           if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + g(n % 100) : '');
+           if (n < 100000) return g(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + g(n % 1000) : '');
+           if (n < 10000000) return g(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + g(n % 100000) : '');
+           return g(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + g(n % 10000000) : '');
+        };
+
+        const whole = Math.floor(num);
+        const fraction = Math.round((num - whole) * 100);
+        let str = g(whole);
+        if (str) str += ' Rupees';
+        if (fraction > 0) {
+           str += (str ? ' and ' : '') + g(fraction) + ' Paise';
+        }
+        return (str || 'Zero') + ' Only';
+     };
 
      // --- Invoice Generation / Retrieval ---
      let invoiceNumber = allocation.invoiceNumber;
@@ -828,28 +643,36 @@ const Allocations = () => {
         } catch (error) { invoiceNumber = `INV-${Date.now().toString().slice(-4)}`; }
      }
 
-     const invoiceHTML = `
+     const printWindow = window.open('', '_blank');
+     printWindow.document.write(`
        <html>
          <head>
            <title>Invoice #${invoiceNumber}</title>
            <style>
              @page { size: A4; margin: 15mm; }
-             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; color: #000; font-size: 12px; line-height: 1.4; }
-             .invoice-box { width: 100%; margin: auto; padding: 0 30px; box-sizing: border-box; }
+             body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; color: #000; font-size: 11px; line-height: 1.3; }
+             .invoice-box { width: 100%; margin: auto; }
              
-
+             /* Header Section */
+             .header-table { width: 100%; border-bottom: 1px solid #000; margin-bottom: 10px; }
+             .company-title { font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 2px; }
+             .company-address { text-align: center; font-size: 10px; margin-bottom: 5px; }
+             
+             .meta-grid { width: 100%; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
+             .meta-item { display: flex; justify-content: space-between; margin-bottom: 2px; }
+             .meta-label { font-weight: bold; }
 
              /* Customer Section */
              .customer-info { margin-bottom: 15px; }
              .info-row { display: flex; margin-bottom: 2px; }
              .info-label { width: 110px; font-weight: bold; flex-shrink: 0; }
-             .info-value { flex-grow: 1; }
+             .info-value { border-bottom: 1px dotted #ccc; flex-grow: 1; }
 
              /* Table Styles */
              table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
              table, th, td { border: 1px solid #000; }
-             th { background-color: #f2f2f2; padding: 8px 4px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-             td { padding: 8px 4px; vertical-align: middle; font-size: 11px; }
+             th { background-color: #f2f2f2; padding: 5px; text-align: center; font-size: 10px; text-transform: uppercase; }
+             td { padding: 4px; vertical-align: middle; }
              .text-center { text-align: center; }
              .text-right { text-align: right; }
 
@@ -874,79 +697,67 @@ const Allocations = () => {
          </head>
          <body>
            <div class="invoice-box">
-             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
-               <div style="text-align: left;">
-                  <img src="${logoImage}" alt="Logo" style="height: 90px; width: auto;" />
-               </div>
+             <div class="company-title">Balaji Lodging INVOICE</div>
+             <div class="company-address">
+               Opp. Railway Station, Near Shriyash Hospital, Pandharpur 413304.<br>
+               Phone : +91 9284793956 / 8080248271<br>
+               GSTIN/UIN: 27AAPFB9198M1ZE | Email: balajilodgingpandharpur@gmail.com
+             </div>
 
-               <div style="text-align: right;">
-                 <div style="font-size: 22px; font-weight: bold; margin-bottom: 4px;">Balaji Lodging</div>
-                 <div style="font-size: 10px; line-height: 1.4;">
-                   Opp. Railway Station, Near Shriyash Hospital, Pandharpur 413304.<br>
-                   Phone : +91 9284793956 / 8080248271<br>
-                   GSTIN/UIN: 27AAPFB9198M1ZE<br>
-                   Email: balajilodgingpandharpur@gmail.com
-                 </div>
+             <div class="meta-grid">
+               <div style="border-right: 1px solid #000; padding-right: 20px;">
+                 <div class="meta-item"><span class="meta-label">Arrival Date</span> <span>${formatBillDate(allocation.checkIn)}</span></div>
+                 <div class="meta-item"><span class="meta-label">Departure Date</span> <span>${formatBillDate(allocation.checkOut)}</span></div>
+               </div>
+               <div>
+                 <div class="meta-item"><span class="meta-label">Register No.</span> <span>${allocation.registrationNumber || '---'}</span></div>
+                 <div class="meta-item"><span class="meta-label">Invoice No.</span> <span style="font-weight:bold;">${invoiceNumber}</span></div>
                </div>
              </div>
 
-             <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px;">
-                <div style="flex: 1;">
-                   <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">Customer Details</div>
-                   <div class="info-row"><span class="info-label">Booked By :</span> <span class="info-value" style="font-weight:bold;">${employee?.name || '---'}</span></div>
-                   <div class="info-row"><span class="info-label">Name :</span> <span class="info-value" style="font-weight:bold;">${cust?.name || '---'}</span></div>
-                   <div class="info-row"><span class="info-label">Address :</span> <span class="info-value">${cust?.address || '---'}</span></div>
-                   <div class="info-row"><span class="info-label">GSTIN :</span> <span class="info-value">${cust?.gstin || '---'}</span></div>
-                   <div class="info-row"><span class="info-label">Company :</span> <span class="info-value">${cust?.companyName || '---'}</span></div>
-                   <div class="info-row"><span class="info-label">Phone :</span> <span class="info-value">${cust?.phone || '---'}</span></div>
-                </div>
-
-                <div style="flex: 0.8;">
-                   <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">INVOICE DETAILS</div>
-                   <div style="display: grid; grid-template-columns: auto auto; gap: 4px 10px; font-size: 11px;">
-                      <span style="font-weight: bold;">Invoice No :</span> <span style="font-weight:bold;">${invoiceNumber}</span>
-                      <span style="font-weight: bold;">Date :</span> <span>${new Date().toLocaleDateString()}</span>
-                      <span style="font-weight: bold;">Arrival :</span> <span>${formatBillDate(allocation.checkIn)}</span>
-                      <span style="font-weight: bold;">Departure :</span> <span>${formatBillDate(allocation.checkOut)}</span>
-                      <span style="font-weight: bold;">Reg. No :</span> <span>${allocation.registrationNumber || '---'}</span>
-                      <span style="font-weight: bold;">Booking ID :</span> <span>${allocation.externalBookingId || '0'}</span>
-                   </div>
-                </div>
+             <div class="customer-info shadow-sm">
+               <div style="font-weight:bold; text-decoration: underline; margin-bottom: 5px; font-size: 12px;">Customer</div>
+               <div class="info-row"><span class="info-label">Name :</span> <span class="info-value" style="font-weight:bold;">${cust?.name || '---'}</span></div>
+               <div class="info-row"><span class="info-label">Address :</span> <span class="info-value">${cust?.address || '---'}</span></div>
+               <div class="info-row">
+                 <span class="info-label">GSTIN/UIN :</span> <span class="info-value" style="width: 250px;">${cust?.gstin || '---'}</span>
+                 <span class="info-label" style="width: 60px; margin-left:20px;">PAN :</span> <span class="info-value">${(cust?.idProof?.includes('PAN') ? cust.idProof.split(' - ')[1] : '') || '---'}</span>
+               </div>
+               <div class="info-row"><span class="info-label">Company Name :</span> <span class="info-value">${cust?.companyName || '---'}</span></div>
+               <div class="info-row">
+                 <span class="info-label">Booking Done By :</span> <span class="info-value" style="width: 250px;">${employee?.name || '---'}</span>
+                 <span class="info-label" style="width: 90px; margin-left:20px;">Contact No. :</span> <span class="info-value">${cust?.phone || '---'}</span>
+               </div>
+               <div class="info-row"><span class="info-label">Booking ID :</span> <span class="info-value">${allocation.externalBookingId || '0'}</span></div>
              </div>
 
              <table>
                <thead>
                  <tr>
                    <th style="width: 30px;">No</th>
-                   <th style="width: 60px;">Room No</th>
-                   <th style="width: 40px;">GST</th>
-                   <th style="width: 60px;">Guests</th>
-                   <th style="width: 40px;">Days</th>
+                   <th>Room Number</th>
+                   <th>GST</th>
+                   <th>No. of Persons</th>
+                   <th>No. Of. Days</th>
                    <th>Booking Type</th>
                    <th>Room Type</th>
-                   <th style="width: 80px;">Rate</th>
-                   <th style="width: 90px;">Total</th>
+                   <th>Rate Per Day</th>
+                   <th>Total Amount</th>
                  </tr>
                </thead>
-                <tbody>
-                  ${selections.map((s, i) => {
-                    const rNum = getRoomNumber(s.roomId);
-                    const lineTotal = (parseFloat(s.basePrice) || 0) * (parseInt(s.stayDuration) || 1);
-                    return `
-                      <tr>
-                        <td class="text-center">${i + 1}</td>
-                        <td class="text-center">${rNum}</td>
-                        <td class="text-center">${gstRate.toFixed(2)}%</td>
-                        <td class="text-center">${String(s.numberOfGuests).padStart(2, '0')}</td>
-                        <td class="text-center">${s.stayDuration}</td>
-                        <td class="text-center">${s.bookingPlatform || allocation.bookingPlatform}</td>
-                        <td class="text-center">${s.roomType || '---'}</td>
-                        <td class="text-center">${(parseFloat(s.basePrice) || 0).toFixed(2)}</td>
-                        <td class="text-right">${lineTotal.toFixed(2)}</td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
+               <tbody>
+                 <tr>
+                   <td class="text-center">1</td>
+                   <td class="text-center">${room?.roomNumber || '---'}</td>
+                   <td class="text-center">${gstRate.toFixed(2)}%</td>
+                   <td class="text-center">${String(allocation.numberOfGuests).padStart(2, '0')}</td>
+                   <td class="text-center">${duration}</td>
+                   <td class="text-center">${allocation.bookingPlatform}</td>
+                   <td class="text-center">${room?.type || '---'}</td>
+                   <td class="text-right">${basePricePerDay.toFixed(2)}</td>
+                   <td class="text-right">${taxableValue.toFixed(2)}</td>
+                 </tr>
+               </tbody>
              </table>
 
              <div class="total-section">
@@ -984,18 +795,16 @@ const Allocations = () => {
                  </tr>
                </thead>
                <tbody>
-                 ${roomWiseGst.map((s, i) => `
-                   <tr>
-                     <td class="text-center">${i + 1}</td>
-                     <td class="text-center">${allocation.hsnSacNumber || '996311'}</td>
-                     <td class="text-right">${s.lineTaxable.toFixed(2)}</td>
-                     <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
-                     <td class="text-right">${s.lineCgst.toFixed(2)}</td>
-                     <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
-                     <td class="text-right">${s.lineSgst.toFixed(2)}</td>
-                     <td class="text-right">${s.lineTotalTax.toFixed(2)}</td>
-                   </tr>
-                 `).join('')}
+                 <tr>
+                   <td class="text-center">1</td>
+                   <td class="text-center">${allocation.hsnSacNumber || '996311'}</td>
+                   <td class="text-right">${taxableValue.toFixed(2)}</td>
+                   <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
+                   <td class="text-right">${cgstAmount.toFixed(2)}</td>
+                   <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
+                   <td class="text-right">${sgstAmount.toFixed(2)}</td>
+                   <td class="text-right">${totalTax.toFixed(2)}</td>
+                 </tr>
                  <tr style="font-weight:bold; background-color: #f9f9f9;">
                    <td colspan="2" class="text-center">Total</td>
                    <td class="text-right">${taxableValue.toFixed(2)}</td>
@@ -1010,7 +819,7 @@ const Allocations = () => {
              
              <div style="margin-bottom: 20px;"><strong>Tax Amount (In Words):</strong> ${numberToWords(totalTax).replace('Rupees', 'Rupees')}</div>
 
-             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePrice.toFixed(2)} ${allocation.paymentType}</span></div>
+             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePrice.toFixed(2)} via ${allocation.paymentType}</span></div>
 
              <div class="sig-area">
                <div class="sig-box">
@@ -1024,34 +833,13 @@ const Allocations = () => {
              </div>
 
              <div class="jurisdiction">SUBJECT TO PANDHARPUR JURISDICTION</div>
-             <div class="computer-gen">It is computer generated invoice,  hence does not require stamp and signature.</div>
+             <div class="computer-gen">This is Computer Generated Invoice</div>
            </div>
          </body>
        </html>
-     `;
-
-     if (action === 'print') {
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(invoiceHTML);
-        printWindow.document.close();
-        // Wait for images to load before printing
-        printWindow.onload = function() {
-           setTimeout(() => {
-             printWindow.print();
-           }, 500); 
-        };
-     } else {
-        const element = document.createElement('div');
-        element.innerHTML = invoiceHTML;
-        const opt = {
-           margin: 0,
-           filename: `Invoice_${invoiceNumber}.pdf`,
-           image: { type: 'jpeg', quality: 0.98 },
-           html2canvas: { scale: 2, useCORS: true },
-           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
-     }
+     `);
+     printWindow.document.close();
+     printWindow.print();
   };
 
   return (
@@ -1195,13 +983,11 @@ const Allocations = () => {
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-bold text-gray-400">{(index + 1).toString().padStart(2, '0')}</span>
                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                         <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
-                            {alloc.roomSelections 
-                               ? alloc.roomSelections.map(s => getRoomNumber(s.roomId)).join(', ') 
-                               : getRoomNumber(alloc.roomId)}
-                         </span>
-                      </td>
+                     <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                           {getRoomNumber(alloc.roomId)}
+                        </span>
+                     </td>
                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-gray-900">{getCustomerName(alloc.customerId)}</span>
@@ -1275,18 +1061,7 @@ const Allocations = () => {
                                    numberOfGuests: alloc.numberOfGuests || 1,
                                    stayDuration: alloc.stayDuration || 1,
                                    existingCustomerId: alloc.customerId,
-                                   hsnSacNumber: alloc.hsnSacNumber || '',
-                                   gstRate: alloc.gstRate || '0',
-                                   roomSelections: alloc.roomSelections || [
-                                     {
-                                       roomId: alloc.roomId,
-                                       roomType: rooms.find(r => String(r.id) === String(alloc.roomId))?.type || '',
-                                       numberOfGuests: alloc.numberOfGuests || 1,
-                                       stayDuration: alloc.stayDuration || 1,
-                                       bookingPlatform: alloc.bookingPlatform || 'Counter',
-                                       basePrice: alloc.basePrice || ''
-                                     }
-                                   ]
+                                   hsnSacNumber: alloc.hsnSacNumber || ''
                                 });
                                 setShowCheckInModal(true);
                              }}
@@ -1298,7 +1073,7 @@ const Allocations = () => {
 
                            {statusTab === 'Live' ? (
                               <button 
-                                 onClick={() => handleCheckOut(alloc.id)}
+                                onClick={() => handleCheckOut(alloc.id, alloc.roomId)}
                                 className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
                                 title="Check Out Guest"
                               >
@@ -1376,8 +1151,8 @@ const Allocations = () => {
                                   {/* Row 1: Register Number, Customer Name */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Registration Number</label>
-                                         <input type="text" name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Reg No" />
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Register No</label>
+                                         <input type="text" name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Reg. No" />
                                       </div>
                                       <div>
                                          <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name</label>
@@ -1439,184 +1214,158 @@ const Allocations = () => {
                               </div>
 
                               {/* Section 2: Stay Details */}
-                              <div className="space-y-6">
-                                  <div className="flex items-center justify-between pb-3 border-b-2 border-emerald-100">
-                                      <div className="flex items-center gap-3">
-                                         <div className="p-2 bg-emerald-100 rounded-lg">
-                                             <BedDouble size={20} className="text-emerald-600" />
-                                         </div>
-                                         <h3 className="text-lg font-bold text-gray-900">Stay Details</h3>
+                              <div className="space-y-5">
+                                  <div className="flex items-center gap-3 pb-3 border-b-2 border-emerald-100">
+                                      <div className="p-2 bg-emerald-100 rounded-lg">
+                                          <BedDouble size={20} className="text-emerald-600" />
                                       </div>
+                                      <h3 className="text-lg font-bold text-gray-900">Stay Details</h3>
                                   </div>
 
-
-                                  {/* Row 1: Arrival & Departure */}
+                                  {/* Row 1: Arrival Date, Departure Date */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                      <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Common Arrival</label>
-                                         <input 
-                                            type="datetime-local" 
-                                            name="checkIn" 
-                                            value={formData.checkIn} 
-                                            onChange={handleChange} 
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
-                                         />
-                                      </div>
-                                      <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Date</label>
-                                         <input 
-                                            type="datetime-local" 
-                                            name="checkOut" 
-                                            value={formData.checkOut} 
-                                            onChange={handleChange} 
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
-                                         />
-                                      </div>
-                                  </div>
-
-
-                                  {/* Rows Table Header */}
-                                  <div className="overflow-x-auto no-scrollbar">
-                                     <div className="min-w-[1000px]">
-                                        <div className="grid grid-cols-12 gap-3 mb-2 px-2">
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room No</div>
-                                           <div className="col-span-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">Persons</div>
-                                           <div className="col-span-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">Days</div>
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Booking Type</div>
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Room Type</div>
-                                           <div className="col-span-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Price / Day</div>
-                                           <div className="col-span-1 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</div>
-                                           <div className="col-span-1"></div>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                           {formData.roomSelections.map((selection, idx) => (
-                                              <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-white p-2 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-200 transition-all">
-                                                 {/* Room Select */}
-                                                 <div className="col-span-2">
-                                                    <select 
-                                                       value={selection.roomId} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'roomId', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white outline-none"
-                                                    >
-                                                       <option value="">Select Room</option>
-                                                       {/* Current Selection (force visible) */}
-                                                       {selection.roomId && rooms.find(r => r.id === selection.roomId) && (
-                                                          <option value={selection.roomId}>
-                                                             {rooms.find(r => r.id === selection.roomId).roomNumber} (Selected)
-                                                          </option>
-                                                       )}
-                                                       {/* Other Available Rooms */}
-                                                       {getAvailableRoomsForRow(idx).filter(r => r.id !== selection.roomId).map(r => (
-                                                          <option key={r.id} value={r.id}>{r.roomNumber}</option>
-                                                       ))}
-                                                    </select>
-                                                 </div>
-
-                                                 {/* Number of Persons */}
-                                                 <div className="col-span-1">
-                                                    <input 
-                                                       type="number" 
-                                                       value={selection.numberOfGuests} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'numberOfGuests', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center outline-none"
-                                                       placeholder="Guests"
-                                                    />
-                                                 </div>
-
-                                                 {/* Number of Days */}
-                                                 <div className="col-span-1">
-                                                    <input 
-                                                       type="number" 
-                                                       value={selection.stayDuration} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'stayDuration', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center outline-none"
-                                                       placeholder="Days"
-                                                    />
-                                                 </div>
-
-                                                 {/* Booking Type */}
-                                                 <div className="col-span-2">
-                                                    <select 
-                                                       value={selection.bookingPlatform} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'bookingPlatform', e.target.value)}
-                                                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold outline-none"
-                                                    >
-                                                       {bookingSources.map(source => (
-                                                          <option key={source} value={source}>{source}</option>
-                                                       ))}
-                                                    </select>
-                                                 </div>
-
-                                                 {/* Room Type Label */}
-                                                 <div className="col-span-2">
-                                                    <div className={`px-3 py-2 rounded-lg text-xs font-black uppercase text-center ${selection.roomType === 'AC' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                                                       {selection.roomType || 'Select Room'}
-                                                    </div>
-                                                 </div>
-
-                                                 {/* Charges per Day */}
-                                                 <div className="col-span-2 relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-black">₹</span>
-                                                    <input 
-                                                       type="number" 
-                                                       value={selection.basePrice} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'basePrice', e.target.value)}
-                                                       className="w-full pl-7 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold outline-none"
-                                                       placeholder="0"
-                                                    />
-                                                 </div>
-
-                                                 {/* Line Total */}
-                                                 <div className="col-span-1 text-right">
-                                                    <p className="text-sm font-black text-indigo-600">
-                                                       ₹{( (parseFloat(selection.basePrice) || 0) * (parseInt(selection.stayDuration) || 1) ).toLocaleString('en-IN')}
-                                                    </p>
-                                                 </div>
-
-                                                 {/* Actions */}
-                                                 <div className="col-span-1 flex justify-center">
-                                                    <button 
-                                                       type="button" 
-                                                       onClick={() => removeRoomSelection(idx)}
-                                                       className="p-1.5 text-gray-300 hover:text-rose-500 transition-colors"
-                                                       title="Remove Room"
-                                                    >
-                                                       <Trash2 size={16} />
-                                                    </button>
-                                                 </div>
-                                              </div>
-                                           ))}
-
-                                           {/* Add Room Button Area */}
-                                           <div className="pt-2 flex justify-start">
-                                              <button 
-                                                 type="button" 
-                                                 onClick={addRoomSelection}
-                                                 className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 shadow-sm"
-                                              >
-                                                 <Plus size={18} />
-                                                 Add Another Room
-                                              </button>
-                                           </div>
-                                        </div>
+                                     <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Arrival Date</label>
+                                        <input type="datetime-local" name="checkIn" value={formData.checkIn} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all" required />
+                                     </div>
+                                     <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Date</label>
+                                        <input 
+                                           type="datetime-local" 
+                                           name="checkOut" 
+                                           value={formData.checkOut} 
+                                           onChange={(e) => {
+                                              const newCheckOut = e.target.value;
+                                              const diffTime = Math.abs(new Date(newCheckOut) - new Date(formData.checkIn));
+                                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                                              setFormData(prev => ({ ...prev, checkOut: newCheckOut, stayDuration: diffDays || 1 }));
+                                           }}
+                                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
+                                        />
                                      </div>
                                   </div>
 
-                                  {/* Secondary Info Rows (Original fields) */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100">
+                                  {/* Row 2: Booking Done By, Booking ID */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Done By (Staff)</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Done By</label>
                                          <select name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" required>
                                             <option value="">Select Staff</option>
                                             {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                          </select>
                                       </div>
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Primary Booking Ref ID</label>
-                                         <input type="text" name="externalBookingId" value={formData.externalBookingId} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Optional identifier" />
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Booking ID</label>
+                                         <input type="text" name="externalBookingId" value={formData.externalBookingId} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Optional" />
                                       </div>
+                                  </div>
 
+                                  {/* Row 3: Select Rooms, Number of Persons */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                     <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Select Rooms</label>
+                                        <select 
+                                           value={formData.roomIds[0] || ''} 
+                                           onChange={(e) => {
+                                              const selectedId = e.target.value;
+                                              if (selectedId) {
+                                                 // Find the selected room and set its type
+                                                 const selectedRoom = rooms.find(r => r.id === selectedId);
+                                                 if (selectedRoom) {
+                                                    setSelectedRoomType(selectedRoom.type);
+                                                 }
+                                                 setFormData(prev => ({ ...prev, roomIds: [selectedId] }));
+                                              } else {
+                                                 setFormData(prev => ({ ...prev, roomIds: [] }));
+                                              }
+                                           }}
+                                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all"
+                                        >
+                                           <option value="">Select a Room</option>
+                                           {rooms
+                                              .filter(r => {
+                                                 // Filter out booked rooms
+                                                 const isBooked = r.status === 'Booked';
+                                                 const hasActiveAllocation = allocations.some(a => 
+                                                    String(a.roomId) === String(r.id) && 
+                                                    (a.status === 'Active' || !a.status)
+                                                 );
+                                                 return !isBooked && !hasActiveAllocation;
+                                              })
+                                              .map(r => (
+                                                 <option key={r.id} value={r.id}>
+                                                    {r.roomNumber} - {r.type}
+                                                 </option>
+                                              ))
+                                           }
+                                        </select>
+                                     </div>
+                                     <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Persons</label>
+                                        <input type="number" name="numberOfGuests" value={formData.numberOfGuests} onChange={handleChange} min="1" max="10" className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="1" required />
+                                     </div>
+                                  </div>
+
+                                  {/* Row 4: Number of Days, Booking Type */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      <div>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Days</label>
+                                         <input 
+                                            type="number" 
+                                            name="stayDuration" 
+                                            value={formData.stayDuration} 
+                                            onChange={(e) => {
+                                               const val = e.target.value;
+                                               if (val === '') { setFormData(prev => ({ ...prev, stayDuration: '' })); return; }
+                                               const days = parseInt(val) || 0;
+                                               if (days < 1) return;
+                                               const checkInDate = new Date(formData.checkIn);
+                                               const newCheckOut = new Date(checkInDate.getTime() + days * 24 * 60 * 60 * 1000);
+                                               const tzOffset = newCheckOut.getTimezoneOffset() * 60000;
+                                               setFormData(prev => ({ ...prev, stayDuration: days, checkOut: new Date(newCheckOut.getTime() - tzOffset).toISOString().slice(0, 16) }));
+                                            }} 
+                                            min="1" 
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
+                                         />
+                                      </div>
+                                      <div>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Type</label>
+                                         <div className="flex gap-2">
+                                            <select 
+                                               name="bookingPlatform" 
+                                               value={formData.bookingPlatform} 
+                                               onChange={handleChange} 
+                                               className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
+                                            >
+                                               {bookingSources.map(source => (
+                                                  <option key={source} value={source}>{source}</option>
+                                               ))}
+                                            </select>
+                                            <button
+                                               type="button"
+                                               onClick={() => setShowAddSourceModal(true)}
+                                               className="px-4 py-3 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-lg font-bold text-base transition-all flex items-center gap-2"
+                                               title="Add New Source"
+                                            >
+                                               <Plus size={18} />
+                                            </button>
+                                         </div>
+                                      </div>
+                                  </div>
+
+                                  {/* Row 5: Room Type */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                     <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type</label>
+                                        <select 
+                                           value={selectedRoomType} 
+                                           onChange={(e) => { setSelectedRoomType(e.target.value); setFormData(prev => ({...prev, roomIds: []})); }} 
+                                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all"
+                                        >
+                                           <option value="">Select Room Type</option>
+                                           {['AC', 'Non-AC'].map(type => <option key={type} value={type}>{type}</option>)}
+                                        </select>
+                                     </div>
                                   </div>
                               </div>
 
@@ -1632,15 +1381,11 @@ const Allocations = () => {
                                   <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 p-6 rounded-xl space-y-5 border border-gray-200">
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                           <div>
-                                              <label className="block text-sm font-semibold text-gray-700 mb-2">Primary GST % (Statutory)</label>
-                                              <select name="gstRate" value={formData.gstRate} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all">
-                                                 <option value="0">0%</option>
-                                                 <option value="5">5%</option>
-                                                 <option value="12">12%</option>
-                                                 <option value="18">18%</option>
-                                                 <option value="28">28%</option>
-                                              </select>
+                                              <label className="block text-sm font-semibold text-gray-700 mb-2">GST %</label>
+                                              <input type="number" name="gstRate" value={formData.gstRate} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="12" />
                                           </div>
+                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                                           <div>
                                               <label className="block text-sm font-semibold text-gray-700 mb-2">HSN/SAC Number</label>
                                               <input type="text" name="hsnSacNumber" value={formData.hsnSacNumber} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="HSN/SAC Code (Optional)" />
@@ -1649,17 +1394,17 @@ const Allocations = () => {
 
                                       {/* Total Amount Display */}
                                       <div className="flex justify-between items-center text-xs pt-3 pb-3 border-t border-b border-gray-200">
-                                        <span className="text-sm font-semibold text-gray-700">Total Amount</span>
-                                         <span className="font-black text-indigo-600 text-base">
-                                            ₹{((() => {
-                                               const gst = parseFloat(formData.gstRate) || 0;
-                                               const totalRoomPrice = formData.roomSelections.reduce((sum, s) => {
-                                                  return sum + ((parseFloat(s.basePrice) || 0) * (parseInt(s.stayDuration) || 1));
-                                               }, 0);
-                                               return totalRoomPrice * (1 + gst/100);
-                                            })()).toLocaleString('en-IN')}
-                                         </span>
-                                     </div>
+                                         <span className="text-sm font-semibold text-gray-700">Total Amount</span>
+                                          <span className="font-black text-indigo-600 text-base">
+                                             ₹{((() => {
+                                                const gst = parseFloat(formData.gstRate) || 0;
+                                                const totalRoomPrice = formData.roomSelections.reduce((sum, sel) => {
+                                                   return sum + ((parseFloat(sel.basePrice) || 0) * (parseInt(sel.stayDuration) || 0));
+                                                }, 0);
+                                                return totalRoomPrice * (1 + gst/100);
+                                             })()).toLocaleString('en-IN')}
+                                          </span>
+                                      </div>
 
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                                           <label className="text-sm font-semibold text-gray-700">Advance Amount</label>
@@ -1681,10 +1426,11 @@ const Allocations = () => {
                                           <span className="font-black text-rose-600 text-base">
                                              ₹{((() => {
                                                 const gst = parseFloat(formData.gstRate) || 0;
-                                                const totalRoomPriceInclusive = formData.roomSelections.reduce((sum, s) => {
-                                                   return sum + ((parseFloat(s.basePrice) || 0) * (parseInt(s.stayDuration) || 1));
-                                                }, 0) * (1 + gst/100);
-                                                return totalRoomPriceInclusive - (parseFloat(formData.advanceAmount) || 0);
+                                                const totalRoomPrice = formData.roomSelections.reduce((sum, sel) => {
+                                                   return sum + ((parseFloat(sel.basePrice) || 0) * (parseInt(sel.stayDuration) || 0));
+                                                }, 0);
+                                                const totalInclusive = totalRoomPrice * (1 + gst/100);
+                                                return totalInclusive - (parseFloat(formData.advanceAmount) || 0);
                                              })()).toLocaleString('en-IN')}
                                           </span>
                                       </div>
@@ -1785,13 +1531,6 @@ const Allocations = () => {
                       >
                          <Printer size={20} />
                       </button>
-                      <button 
-                         onClick={() => handlePrintBill(viewingAllocation, 'download')}
-                         className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"
-                         title="Download PDF"
-                      >
-                         <Download size={20} />
-                      </button>
                       <button onClick={() => setViewingAllocation(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>
                    </div>
                </div>
@@ -1835,12 +1574,8 @@ const Allocations = () => {
                         </div>
                         <div className="p-3 grid grid-cols-2 sm:grid-cols-6 gap-3">
                            <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Room(s)</p>
-                              <p className="text-sm font-black text-gray-900">
-                                 {viewingAllocation.roomSelections 
-                                    ? viewingAllocation.roomSelections.map(s => getRoomNumber(s.roomId)).join(', ') 
-                                    : getRoomNumber(viewingAllocation.roomId)}
-                              </p>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase">Room</p>
+                              <p className="text-sm font-black text-gray-900">{getRoomNumber(viewingAllocation.roomId)}</p>
                            </div>
                            <div>
                               <p className="text-[10px] text-gray-400 font-bold uppercase">Guests</p>

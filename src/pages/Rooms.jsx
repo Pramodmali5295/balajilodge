@@ -267,7 +267,7 @@ const Rooms = () => {
                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                     if (idxA !== -1) return -1;
                     if (idxB !== -1) return 1;
-                    return a.localeCompare(b);
+                    return a.localeCompare(b);  
                  });
                  
                  if (sortedGroups.length === 0) {
@@ -340,66 +340,7 @@ const Rooms = () => {
                     </div>
                  </div>
 
-                 {/* Pricing & GST Section */}
-                 <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-2xl border-2 border-indigo-100 space-y-4">
-                    <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                       Pricing & Tax Configuration
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       {/* Base Price */}
-                       <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Base Price</label>
-                          <div className="relative">
-                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-lg">₹</span>
-                             <input 
-                               type="number" 
-                               name="basePrice" 
-                               value={formData.basePrice} 
-                               onChange={handleChange} 
-                               className="w-full pl-10 pr-4 py-3 bg-white border-2 border-indigo-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-lg transition-all" 
-                               placeholder="1000" 
-                               required 
-                             />
-                          </div>
-                       </div>
 
-                       {/* GST Rate */}
-                       <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">GST Rate</label>
-                          <select 
-                            name="gstRate" 
-                            value={formData.gstRate} 
-                            onChange={handleChange} 
-                            className="w-full px-4 py-3 bg-white border-2 border-indigo-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-lg transition-all appearance-none cursor-pointer"
-                          >
-                            <option value="0">0% (No GST)</option>
-                            <option value="5">5%</option>
-                            <option value="12">12%</option>
-                            <option value="18">18%</option>
-                            <option value="28">28%</option>
-                          </select>
-                       </div>
-                    </div>
-
-                    {/* Calculation Display */}
-                    <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-indigo-100 space-y-2">
-                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600 font-semibold">Base Amount:</span>
-                          <span className="font-bold text-gray-800">₹{formData.basePrice || '0'}</span>
-                       </div>
-                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600 font-semibold">GST ({formData.gstRate}%):</span>
-                          <span className="font-bold text-indigo-600">₹{formData.basePrice ? Math.round((parseFloat(formData.basePrice) * parseFloat(formData.gstRate)) / 100) : '0'}</span>
-                       </div>
-                       <div className="h-px bg-gradient-to-r from-transparent via-indigo-200 to-transparent my-2"></div>
-                       <div className="flex justify-between items-center">
-                          <span className="text-gray-800 font-black uppercase text-xs tracking-wider">Final Price:</span>
-                          <span className="font-black text-2xl text-indigo-600">₹{formData.price || '0'}</span>
-                       </div>
-                    </div>
-                 </div>
                 
               </div>
 
