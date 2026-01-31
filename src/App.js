@@ -13,14 +13,7 @@ import Auth from './pages/Auth';
 import CheckoutNotifier from './components/CheckoutNotifier';
 import './index.css';
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { currentUser } = useAuth();
-  if (!currentUser) {
-    return <Navigate to="/auth" replace />;
-  }
-  return children;
-};
+
 
 // Route that redirects to Dashboard if already logged in
 const PublicRoute = ({ children }) => {
@@ -38,7 +31,6 @@ function AppContent() {
   
   // Check if we're on the add-booking page
   const isAddBookingPage = location.pathname === '/add-booking';
-  const isAuthPage = location.pathname === '/auth';
 
   if (!currentUser) {
      return (

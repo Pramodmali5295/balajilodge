@@ -90,7 +90,6 @@ const Allocations = () => {
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedRoomType, setSelectedRoomType] = useState('');
   const [allocationSearch, setAllocationSearch] = useState('');
   const [statusTab, setStatusTab] = useState('Live');
   const location = useLocation();
@@ -757,7 +756,6 @@ const Allocations = () => {
 
   const handlePrintBill = async (allocation, action = 'print') => {
      const cust = customers.find(c => String(c.id) === String(allocation.customerId));
-     const room = rooms.find(r => String(r.id) === String(allocation.roomId));
      const employee = employees.find(e => String(e.id) === String(allocation.employeeId));
      
      // Calculations
@@ -793,9 +791,7 @@ const Allocations = () => {
      const totalInclusivePrice = taxableValue + totalTax;
      const cgstAmount = totalTax / 2;
      const sgstAmount = totalTax / 2;
-     const advanceAmount = Number(allocation.advanceAmount) || 0;
 
-     // --- Invoice Generation / Retrieval ---
      let invoiceNumber = allocation.invoiceNumber;
      if (!invoiceNumber) {
         try {
