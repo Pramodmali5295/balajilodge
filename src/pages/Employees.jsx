@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { 
   UserPlus, User, Phone, Shield, Search, Briefcase, X, Plus, 
-  CheckCircle2, Edit3, Trash2, Eye, Download, FileText, MapPin, Calendar 
+  CheckCircle2, Edit3, Trash2, Eye, Download, FileText, MapPin, Calendar, CreditCard, ChevronDown 
 } from 'lucide-react';
 
 const Employees = () => {
@@ -19,7 +19,7 @@ const Employees = () => {
     name: '',
     role: 'Room Assistant',
     phone: '',
-    idProofType: 'Aadhar',
+    idProofType: '',
     aadharNumber: '',
     address: '',
     status: 'Active',
@@ -28,6 +28,14 @@ const Employees = () => {
   });
   const [editingId, setEditingId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
 
   const roles = ['Room Assistant'];
 
@@ -54,17 +62,27 @@ const Employees = () => {
 
   const handleChange = (e) => {
     let { name, value } = e.target;
-    // Sanitization
+    
+    // Sanitization & Input Masking
     if (name === 'phone') {
         value = value.replace(/\D/g, '').slice(0, 10);
     } else if (name === 'name') {
         value = value.replace(/[^a-zA-Z\s.'-]/g, '');
+    } else if (name === 'aadharNumber') {
+        if (formData.idProofType === 'Aadhar') {
+             // Aadhar: Digits only, max 12
+             value = value.replace(/\D/g, '').slice(0, 12);
+        } else if (formData.idProofType === 'PAN') {
+             // PAN: Alphanumeric, max 10, uppercase
+             value = value.toUpperCase().slice(0, 10);
+        }
     }
-    setFormData({ ...formData, [name]: value });
+    
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const resetForm = () => {
-    setFormData({ name: '', role: 'Room Assistant', phone: '', idProofType: 'Aadhar', aadharNumber: '', address: '', status: 'Active', assignedRooms: [], joiningDate: new Date().toISOString().split('T')[0] });
+    setFormData({ name: '', role: 'Room Assistant', phone: '', idProofType: '', aadharNumber: '', address: '', status: 'Active', assignedRooms: [], joiningDate: new Date().toISOString().split('T')[0] });
     setEditingId(null);
     setShowForm(false);
   };
@@ -86,9 +104,19 @@ const Employees = () => {
         alert("Invalid Phone number. Format: 10 digits.");
         return;
     }
-    if (formData.idProofType === 'Aadhar' && !/^\d{12}$/.test(formData.aadharNumber)) {
-        alert("Aadhar Number must be exactly 12 digits.");
-        return;
+    // Conditional ID Validation (Only if provided)
+    if (formData.idProofType && formData.aadharNumber.trim()) {
+        const idType = formData.idProofType;
+        const idNum = formData.aadharNumber.trim().toUpperCase();
+
+        if (idType === 'Aadhar' && !/^\d{12}$/.test(idNum)) {
+             alert("Aadhar Number must be exactly 12 digits.");
+             return;
+        }
+        if (idType === 'PAN' && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(idNum)) {
+             alert("Invalid PAN Card Number format.");
+             return;
+        }
     }
     if (formData.name.trim().length < 3) {
         alert("Name must be at least 3 characters.");
@@ -133,6 +161,7 @@ const Employees = () => {
         });
       }
       
+      setSuccessMsg(editingId ? 'Staff updated successfully!' : 'Staff adding successfully!');
       setShowForm(false);
       resetForm();
     } catch (error) {
@@ -161,7 +190,7 @@ const Employees = () => {
 
   const handleDeleteEmp = async (e, empId) => {
     e.stopPropagation();
-    if(window.confirm('Remove this employee?')) {
+    if(window.confirm('Delete this staff?')) {
        try {
          const employeeRef = doc(db, "employees", empId);
          await deleteDoc(employeeRef);
@@ -315,8 +344,8 @@ const Employees = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                <tr>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">#</th>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee Name</th>
+                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">Sr.No</th>
+                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Staff Name</th>
                    <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
                    <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Contact</th>
                    <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned Rooms</th>
@@ -566,20 +595,33 @@ const Employees = () => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                               <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">ID Proof Type</label>
-                                  <select name="idProofType" value={formData.idProofType} onChange={handleChange} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all appearance-none cursor-pointer">
-                                     <option value="Aadhar">Aadhar Card</option>
-                                     <option value="PAN">PAN Card</option>
-                                     <option value="Voter ID">Voter ID</option>
-                                     <option value="Driving License">Driving License</option>
-                                  </select>
-                               </div>
+                                <div>
+                                   <label className="block text-xs font-bold text-gray-600 mb-1">ID Proof Type</label>
+                                   <div className="relative group">
+                                      <CreditCard size={14} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                      <select name="idProofType" value={formData.idProofType} onChange={handleChange} className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all appearance-none cursor-pointer">
+                                         <option value="">Select ID Proof Type</option>
+                                         <option value="Aadhar">Aadhar Card</option>
+                                         <option value="PAN">PAN Card</option>
+                                         <option value="Voter ID">Voter ID</option>
+                                         <option value="Driving License">Driving License</option>
+                                      </select>
+                                      <ChevronDown size={14} className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" />
+                                   </div>
+                                </div>
                                <div>
                                   <label className="block text-xs font-bold text-gray-600 mb-1">ID Number</label>
                                   <div className="relative group">
                                      <FileText size={14} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                                     <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all" placeholder="Enter ID number" />
+                                     <input 
+                                       type="text" 
+                                       name="aadharNumber" 
+                                       value={formData.aadharNumber} 
+                                       onChange={handleChange} 
+                                       disabled={!formData.idProofType}
+                                       className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100" 
+                                       placeholder={formData.idProofType ? `Enter ${formData.idProofType} Number` : "Select ID Type first"}
+                                     />
                                   </div>
                                </div>
                                <div>
@@ -664,6 +706,24 @@ const Employees = () => {
         </div>,
         document.body
       )}
+
+      {/* Success Toast */}
+      {successMsg && createPortal(
+        <div className="fixed top-6 right-6 z-[100] animate-slide-in-down">
+          <div className="bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3">
+             <div className="bg-white/20 p-2 rounded-full">
+               <CheckCircle2 size={24} />
+             </div>
+             <div>
+               <h4 className="font-bold text-sm">Success</h4>
+               <p className="text-emerald-100 text-xs">{successMsg}</p>
+             </div>
+             <button onClick={() => setSuccessMsg('')} className="ml-2 text-emerald-200 hover:text-white"><X size={18} /></button>
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 };
