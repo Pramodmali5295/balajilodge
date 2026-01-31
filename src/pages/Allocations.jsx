@@ -262,6 +262,10 @@ const Allocations = () => {
     return employees.find(e => String(e.id) === String(id))?.name || '---';
   }, [employees]);
 
+  const getCustomerPhone = useCallback((id) => {
+    return customers.find(c => String(c.id) === String(id))?.phone || '---';
+  }, [customers]);
+
   const formatDate = useCallback((dateStr) => {
     if (!dateStr) return '---';
     try {
@@ -315,9 +319,10 @@ const Allocations = () => {
         : getRoomNumber(alloc.roomId).toLowerCase();
       const regNo = (alloc.registrationNumber || '').toLowerCase();
       const bookId = (alloc.externalBookingId || '').toLowerCase();
+      const phone = getCustomerPhone(alloc.customerId).toLowerCase();
       const search = allocationSearch.toLowerCase();
       
-      const matchesSearch = custName.includes(search) || allRoomNums.includes(search) || regNo.includes(search) || bookId.includes(search);
+      const matchesSearch = custName.includes(search) || allRoomNums.includes(search) || regNo.includes(search) || bookId.includes(search) || phone.includes(search);
       // Live tab: Show Active bookings (or bookings without status for backward compatibility)
       // History tab: Show ONLY Checked-Out bookings
       const matchesTab = statusTab === 'Live' 
@@ -328,7 +333,7 @@ const Allocations = () => {
       
       return matchesSearch && matchesTab;
     }).sort((a, b) => new Date(b.checkIn || 0) - new Date(a.checkIn || 0));
-  }, [allocations, allocationSearch, statusTab, getCustomerName, getRoomNumber]);
+  }, [allocations, allocationSearch, statusTab, getCustomerName, getRoomNumber, getCustomerPhone]);
 
   // --- Handlers ---
   const handleChange = (e) => {
@@ -888,7 +893,7 @@ const Allocations = () => {
 
              <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px;">
                 <div style="flex: 1;">
-                   <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">Customer Details</div>
+                   <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">CUSTOMER DETAILS</div>
                    <div class="info-row"><span class="info-label">Booked By :</span> <span class="info-value" style="font-weight:bold;">${employee?.name || '---'}</span></div>
                    <div class="info-row"><span class="info-label">Name :</span> <span class="info-value" style="font-weight:bold;">${cust?.name || '---'}</span></div>
                    <div class="info-row"><span class="info-label">Address :</span> <span class="info-value">${cust?.address || '---'}</span></div>
@@ -913,7 +918,7 @@ const Allocations = () => {
              <table>
                <thead>
                  <tr>
-                   <th style="width: 30px;">No</th>
+                   <th style="width: 30px;">Sr.No</th>
                    <th style="width: 60px;">Room No</th>
                    <th style="width: 40px;">GST</th>
                    <th style="width: 60px;">Guests</th>
@@ -965,7 +970,7 @@ const Allocations = () => {
              <table class="gst-analysis">
                <thead>
                  <tr>
-                   <th rowspan="2">No</th>
+                   <th rowspan="2">Sr.No</th>
                    <th rowspan="2">HSN/SAC</th>
                    <th rowspan="2">Taxable Value</th>
                    <th colspan="2">CGST</th>
@@ -1174,11 +1179,10 @@ const Allocations = () => {
            <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-400 text-[10px] uppercase tracking-wider font-bold">
                  <tr>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">#</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Sr.No</th>
                     <th className="px-4 py-3 whitespace-nowrap">Room No</th>
                     <th className="px-4 py-3 whitespace-nowrap">Customer Name</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Reg No</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Booking ID</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Contact No</th>
                     <th className="px-4 py-3 whitespace-nowrap">Duration</th>
                     <th className="px-4 py-3 whitespace-nowrap">Duty Staff</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
@@ -1205,10 +1209,7 @@ const Allocations = () => {
                         </div>
                      </td>
                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-xs font-bold text-gray-700">{alloc.registrationNumber || '---'}</span>
-                     </td>
-                     <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-xs font-medium text-gray-500">{alloc.externalBookingId || '---'}</span>
+                        <span className="text-xs font-bold text-gray-700">{getCustomerPhone(alloc.customerId)}</span>
                      </td>
                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="space-y-1">
@@ -1315,7 +1316,7 @@ const Allocations = () => {
                  ))}
                  {filteredAllocations.length === 0 && (
                    <tr>
-                     <td colSpan="9" className="py-20 text-center text-gray-400">
+                     <td colSpan="8" className="py-20 text-center text-gray-400">
                         <div className="flex flex-col items-center justify-center">
                            <Search size={32} className="mb-3 opacity-20" />
                            <p className="text-sm font-medium">No bookings found matching your criteria.</p>
