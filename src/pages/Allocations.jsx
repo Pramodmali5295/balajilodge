@@ -267,21 +267,6 @@ const Allocations = () => {
     return customers.find(c => String(c.id) === String(id))?.phone || '---';
   }, [customers]);
 
-  const formatDate = useCallback((dateStr) => {
-    if (!dateStr) return '---';
-    try {
-      const d = new Date(dateStr);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      const hours = String(d.getHours()).padStart(2, '0');
-      const minutes = String(d.getMinutes()).padStart(2, '0');
-      return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch (e) {
-      return '---';
-    }
-  }, []);
-
   const availableRooms = useMemo(() => {
      return rooms.filter(r => {
         const isNotBooked = r.status !== 'Booked';
