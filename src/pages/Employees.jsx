@@ -261,7 +261,7 @@ const Employees = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Staff Directory</h1>
-             <p className="text-gray-500 text-sm mt-1">Manage employee roles and assignments</p>
+             <p className="text-gray-500 text-sm mt-1">Manage staff roles and assignments</p>
           </div>
           <div className="flex items-center gap-2">
               <button 

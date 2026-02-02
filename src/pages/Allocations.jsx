@@ -247,8 +247,12 @@ const Allocations = () => {
       const isNotBooked = r.status !== 'Booked';
       const hasActiveAllocation = allocations.some(a => String(a.roomId) === String(r.id) && (a.status === 'Active' || !a.status));
       const notSelectedElsewhere = !selectedOtherIds.includes(r.id);
-      return isNotBooked && !hasActiveAllocation && notSelectedElsewhere;
-    });
+      
+      const typeFilter = formData.roomSelections[currentIndex].roomType;
+      const matchesType = !typeFilter || typeFilter === 'All' || r.type === typeFilter;
+
+      return isNotBooked && !hasActiveAllocation && notSelectedElsewhere && matchesType;
+    }).sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }));
   };
   // Helper Functions
   const getCustomerName = useCallback((id) => {
@@ -516,7 +520,7 @@ const Allocations = () => {
         return;
     }
     if (formData.guestName.trim().length < 3) {
-        alert("Guest Name must be at least 3 characters.");
+        alert("Customer Name must be at least 3 characters.");
         return;
     }
     if (!formData.guestIdNumber.trim()) {
@@ -540,13 +544,17 @@ const Allocations = () => {
         alert("Please enter a valid, complete address.");
         return;
     }
+    if (!formData.employeeId) {
+        alert("Please select the staff member who did the booking.");
+        return;
+    }
     if (formData.roomSelections.some(s => !s.roomId)) {
         alert("Please select a room for all rows.");
         return;
     }
     // Check if any room has invalid duration or guests
     if (formData.roomSelections.some(s => parseInt(s.stayDuration) < 1 || parseInt(s.numberOfGuests) < 1)) {
-        alert("Number of guests and days must be at least 1.");
+        alert("Number of persons and days must be at least 1.");
         return;
     }
     // -------------------
@@ -888,7 +896,7 @@ const Allocations = () => {
            <div class="invoice-box">
              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
                <div style="text-align: left;">
-                  <img src="${logoImage}" alt="Logo" style="height: 90px; width: auto;" />
+                  <img src="${logoImage}" alt="Logo" style="height: 90px; width: 180px;" />
                </div>
 
                <div style="text-align: right;">
@@ -1067,7 +1075,7 @@ const Allocations = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] space-y-2">
+    <div className={`flex flex-col space-y-2 ${isAddBookingPage ? 'h-[calc(100vh-2rem)]' : 'h-[calc(100vh-6rem)]'}`}>
       
       {/* Top Section (Fixed) */}
       {!isAddBookingPage && (
@@ -1082,7 +1090,7 @@ const Allocations = () => {
                   ? 'Pending' 
                   : 'Add Booking'}
             </h1>
-             <p className="text-gray-500 text-sm mt-1">{statusTab === 'Live' ? 'New check-ins & active guests' : 'View past booking history'}</p>
+             <p className="text-gray-500 text-sm mt-1">{statusTab === 'Live' ? 'New check-ins & active customers' : 'View past booking history'}</p>
           </div>
           <div className="flex items-center gap-2">
               {statusTab === 'Live' && !location.pathname.includes('pending') && (
@@ -1138,7 +1146,7 @@ const Allocations = () => {
                    </p>
                    <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-3xl font-black text-white">
-                         {statusTab === 'History' ? stats.repeatedCount : employees.length}
+                         {statusTab === 'History' ? stats.repeatedCount : employees.filter(e => e.status !== 'Inactive').length}
                       </span>
                       <span className="text-xs text-amber-100 font-bold opacity-80">
                          {statusTab === 'History' ? 'Loyal' : 'Active'}
@@ -1158,7 +1166,7 @@ const Allocations = () => {
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
               <input 
                 type="text" 
-                placeholder="Search guest or room..." 
+                placeholder="Search Customer or Room..." 
                 value={allocationSearch}
                 onChange={(e) => setAllocationSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg text-sm font-medium outline-none transition-all" 
@@ -1205,6 +1213,7 @@ const Allocations = () => {
                     <th className="px-4 py-3 text-center whitespace-nowrap">Contact No</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Duration</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Duty Staff</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Pending Amount</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
                  </tr>
@@ -1249,6 +1258,22 @@ const Allocations = () => {
                      </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-semibold text-gray-700">{getEmployeeName(alloc.employeeId)}</span>
+                     </td>
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className="text-xs font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
+                           ₹{(() => {
+                              const gstRate = Number(alloc.gstRate || 0);
+                              const selections = alloc.roomSelections || [{ 
+                                  basePrice: alloc.basePrice, 
+                                  stayDuration: alloc.stayDuration 
+                              }];
+                              const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
+                              const total = totalBase * (1 + gstRate/100);
+                              const paid = Number(alloc.advanceAmount || 0);
+                              const pending = total - paid;
+                              return Math.max(0, Math.round(pending)).toLocaleString('en-IN');
+                           })()}
+                        </span>
                      </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         {alloc.status === 'Checked-Out' ? (
@@ -1378,9 +1403,19 @@ const Allocations = () => {
                           
                            {/* Form Header - Only show on standalone page to avoid double headers in modal */}
                            {isAddBookingPage && (
-                              <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-6">
-                                  <h2 className="text-2xl font-bold text-white">{editingAllocation ? 'Update Booking' : 'Booking Information'}</h2>
-                                  <p className="text-indigo-100 text-sm mt-1">Please fill in all required fields.</p>
+                              <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-6 flex justify-between items-start">
+                                  <div>
+                                      <h2 className="text-2xl font-bold text-white">{editingAllocation ? 'Update Booking' : 'Booking Information'}</h2>
+                                      <p className="text-indigo-100 text-sm mt-1">Please fill in all required fields.</p>
+                                  </div>
+                                  <button 
+                                      type="button"
+                                      onClick={() => navigate('/')} 
+                                      className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-white transition-colors"
+                                      title="Close"
+                                  >
+                                      <X size={24} />
+                                  </button>
                               </div>
                            )}
 
@@ -1413,8 +1448,8 @@ const Allocations = () => {
 
                                   {/* Row 2: Address (Full Width) */}
                                   <div>
-                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-                                     <textarea name="guestAddress" value={formData.guestAddress} onChange={handleChange} rows="3" className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all resize-none" placeholder="Address"></textarea>
+                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
+                                     <textarea name="guestAddress" value={formData.guestAddress} onChange={handleChange} rows="3" className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all resize-none" placeholder="Address" required></textarea>
                                   </div>
 
                                   {/* Row 3: Company Name, Contact Number */}
@@ -1485,7 +1520,7 @@ const Allocations = () => {
                                   {/* Row 1: Arrival & Departure */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Common Arrival <span className="text-red-500">*</span></label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Arrival Date<span className="text-red-500">*</span></label>
                                          <input 
                                             type={focusedFields.checkIn ? "datetime-local" : "text"}
                                             name="checkIn" 
@@ -1517,11 +1552,11 @@ const Allocations = () => {
                                   <div className="overflow-x-auto custom-scrollbar pb-2">
                                      <div className="min-w-[1000px]">
                                         <div className="grid grid-cols-12 gap-4 mb-3 px-3 py-2 bg-gray-50/50 rounded-lg border border-gray-100">
+                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room No</div>
+                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Booking Type</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Persons</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Days</div>
-                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Booking Type</div>
-                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Price / Day</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Total</div>
                                            <div className="col-span-1"></div>
@@ -1530,6 +1565,23 @@ const Allocations = () => {
                                         <div className="space-y-3">
                                            {formData.roomSelections.map((selection, idx) => (
                                               <div key={idx} className="grid grid-cols-12 gap-4 items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all group">
+                                                 
+                                                 {/* Room Type */}
+                                                 <div className="col-span-2">
+                                                    <div className="relative">
+                                                       <select 
+                                                          value={selection.roomType} 
+                                                          onChange={(e) => updateRoomSelection(idx, 'roomType', e.target.value)}
+                                                          className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
+                                                       >
+                                                          <option value="">Select Room Type</option>
+                                                          <option value="AC">AC</option>
+                                                          <option value="Non-AC">Non-AC</option>
+                                                       </select>
+                                                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                    </div>
+                                                 </div>
+
                                                  {/* Room Select */}
                                                  <div className="col-span-2">
                                                     <div className="relative">
@@ -1539,19 +1591,40 @@ const Allocations = () => {
                                                           className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
                                                        >
                                                           <option value="">Select Room</option>
-                                                          {/* Current Selection (force visible) */}
                                                           {selection.roomId && rooms.find(r => r.id === selection.roomId) && (
                                                              <option value={selection.roomId}>
                                                                 {rooms.find(r => r.id === selection.roomId).roomNumber}
                                                              </option>
                                                           )}
-                                                          {/* Other Available Rooms */}
                                                           {getAvailableRoomsForRow(idx).filter(r => r.id !== selection.roomId).map(r => (
                                                              <option key={r.id} value={r.id}>{r.roomNumber}</option>
                                                           ))}
                                                        </select>
                                                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                                                     </div>
+                                                 </div>
+
+                                                 {/* Booking Type */}
+                                                 <div className="col-span-2">
+                                                    <div className="relative">
+                                                         <select 
+                                                            value={selection.bookingPlatform} 
+                                                            onChange={(e) => {
+                                                               if (e.target.value === '__ADD_NEW__') {
+                                                                  setShowAddSourceModal(true);
+                                                               } else {
+                                                                  updateRoomSelection(idx, 'bookingPlatform', e.target.value);
+                                                               }
+                                                            }}
+                                                            className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
+                                                         >
+                                                            {bookingSources.map(source => (
+                                                               <option key={source} value={source}>{source}</option>
+                                                            ))}
+                                                            <option value="__ADD_NEW__" className="text-indigo-600 font-bold">+ Add New Source</option>
+                                                         </select>
+                                                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                      </div>
                                                  </div>
 
                                                  {/* Number of Persons */}
@@ -1592,50 +1665,18 @@ const Allocations = () => {
                                                     />
                                                  </div>
 
-                                                  {/* Booking Type */}
-                                                  <div className="col-span-2">
-                                                     <div className="flex gap-1">
-                                                        <div className="relative flex-1">
-                                                           <select 
-                                                              value={selection.bookingPlatform} 
-                                                              onChange={(e) => {
-                                                                 if (e.target.value === '__ADD_NEW__') {
-                                                                    setShowAddSourceModal(true);
-                                                                 } else {
-                                                                    updateRoomSelection(idx, 'bookingPlatform', e.target.value);
-                                                                 }
-                                                              }}
-                                                              className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
-                                                           >
-                                                              {bookingSources.map(source => (
-                                                                 <option key={source} value={source}>{source}</option>
-                                                              ))}
-                                                              <option value="__ADD_NEW__" className="text-indigo-600 font-bold">+ Add New Source</option>
-                                                           </select>
-                                                           <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                                                        </div>
-                                                     </div>
-                                                  </div>
-
-                                                 {/* Room Type Label */}
-                                                 <div className="col-span-2">
-                                                    <div className={`px-3 py-2.5 rounded-lg text-xs font-black uppercase text-center border ${selection.roomType === 'AC' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                                       {selection.roomType || '-'}
-                                                    </div>
+                                                 {/* Price / Day Input */}
+                                                 <div className="col-span-2 relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                                                    <input 
+                                                       type="number" 
+                                                       min="0"
+                                                       value={selection.basePrice} 
+                                                       onChange={(e) => updateRoomSelection(idx, 'basePrice', Math.max(0, parseInt(e.target.value) || 0))}
+                                                       className="w-full pl-6 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 no-spinners transition-all"
+                                                       placeholder="Price"
+                                                    />
                                                  </div>
-
-                                                  {/* Price / Day Input */}
-                                                  <div className="col-span-2 relative">
-                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
-                                                     <input 
-                                                        type="number" 
-                                                        min="0"
-                                                        value={selection.basePrice} 
-                                                        onChange={(e) => updateRoomSelection(idx, 'basePrice', Math.max(0, parseInt(e.target.value) || 0))}
-                                                        className="w-full pl-6 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 no-spinners transition-all"
-                                                        placeholder="Price"
-                                                     />
-                                                  </div>
 
                                                  {/* Line Total */}
                                                  <div className="col-span-1 text-right">
@@ -1676,10 +1717,10 @@ const Allocations = () => {
                                   {/* Secondary Info Rows (Original fields) */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Done By (Staff)</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Done By (Staff) <span className="text-red-500">*</span></label>
                                          <select name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" required>
                                             <option value="">Select Staff</option>
-                                            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                            {employees.filter(e => e.status !== 'Inactive' || e.id === formData.employeeId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                          </select>
                                       </div>
                                       <div>

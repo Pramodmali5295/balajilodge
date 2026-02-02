@@ -42,9 +42,23 @@ const Dashboard = () => {
   const getRoomType = (id) => rooms.find(r => String(r.id) === String(id))?.type || 'Unknown';
 
   const roomBreakdown = useMemo(() => {
-     const types = { AC: 0, 'Non-AC': 0 };
-     rooms.forEach(r => { if(types[r.type] !== undefined) types[r.type]++; });
-     return types;
+     const data = { 
+         AC: { total: 0, available: 0, occupied: 0 }, 
+         'Non-AC': { total: 0, available: 0, occupied: 0 } 
+     };
+     
+     rooms.forEach(r => { 
+        const type = r.type;
+        if(data[type]) {
+            data[type].total++;
+            if (r.status === 'Booked') {
+                data[type].occupied++;
+            } else {
+                data[type].available++;
+            }
+        }
+     });
+     return data;
   }, [rooms]);
 
   // Daily Report Calculations
@@ -342,25 +356,39 @@ const Dashboard = () => {
                 <div className="flex-1 grid grid-cols-2 gap-4 p-5">
                    {/* Deluxe AC Item - Vertical Style */}
                    <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-center items-center text-center group/item">
-                      <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200 mb-4 group-hover/item:scale-110 transition-transform">
+                      <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200 mb-2 group-hover/item:scale-110 transition-transform">
                          <Sparkles size={20} />
                       </div>
-                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">AC</p>
-                      <div className="flex flex-col">
-                         <h4 className="text-3xl font-black text-emerald-700 leading-none">{roomBreakdown.AC}</h4>
-                         <span className="text-[8px] font-bold text-emerald-500/60 uppercase mt-1 tracking-widest">Units</span>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3">AC</p>
+                      
+                      <div className="w-full space-y-2">
+                          <div className="flex justify-between items-center px-3 py-2 bg-white/80 rounded-lg shadow-sm">
+                              <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-wide">Available</span>
+                              <span className="text-sm font-black text-emerald-600">{roomBreakdown.AC.available}</span>
+                          </div>
+                          <div className="flex justify-between items-center px-3 py-2 bg-emerald-100/50 rounded-lg">
+                              <span className="text-[9px] font-bold text-emerald-700/70 uppercase tracking-wide">Booked</span>
+                              <span className="text-sm font-black text-emerald-700/70">{roomBreakdown.AC.occupied}</span>
+                          </div>
                       </div>
                    </div>
 
                    {/* Standard Non-AC Item - Vertical Style */}
                    <div className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-center items-center text-center group/item">
-                      <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-200 mb-4 group-hover/item:scale-110 transition-transform">
+                      <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-200 mb-2 group-hover/item:scale-110 transition-transform">
                          <BedDouble size={20} />
                       </div>
-                      <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Non-AC</p>
-                      <div className="flex flex-col">
-                         <h4 className="text-3xl font-black text-gray-700 leading-none">{roomBreakdown['Non-AC']}</h4>
-                         <span className="text-[8px] font-bold text-gray-400/60 uppercase mt-1 tracking-widest">Units</span>
+                      <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Non-AC</p>
+                      
+                       <div className="w-full space-y-2">
+                          <div className="flex justify-between items-center px-3 py-2 bg-white/80 rounded-lg shadow-sm">
+                              <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Available</span>
+                              <span className="text-sm font-black text-gray-800">{roomBreakdown['Non-AC'].available}</span>
+                          </div>
+                          <div className="flex justify-between items-center px-3 py-2 bg-gray-200/50 rounded-lg">
+                              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Booked</span>
+                              <span className="text-sm font-black text-gray-500">{roomBreakdown['Non-AC'].occupied}</span>
+                          </div>
                       </div>
                    </div>
                 </div>
