@@ -1,4 +1,4 @@
-import { BedDouble, Users, CheckCircle, Sparkles, TrendingUp, Calendar, DollarSign, LogIn, LogOut, CreditCard } from 'lucide-react';
+import { BedDouble, Users, CheckCircle, Sparkles, TrendingUp, Calendar, IndianRupee, LogIn, LogOut, CreditCard } from 'lucide-react';
 import { Link } from 'react-router-dom'; // Assuming Link is from react-router-dom
 import React, { useMemo } from 'react'; // Assuming React and useMemo are imported
 import { useAppContext } from '../context/AppContext'; // Assuming useAppContext is imported
@@ -148,7 +148,7 @@ const Dashboard = () => {
           link="/rooms"
         />
         <StatCard 
-          title="Total Employees" 
+          title="Total Staff" 
           value={stats.totalStaff} 
           icon={<Users />} 
           gradient="bg-gradient-to-br from-amber-500 to-amber-600"
@@ -211,9 +211,9 @@ const Dashboard = () => {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/15 transition-all group">
             <div className="flex items-center justify-between mb-2">
               <div className="p-1.5 bg-green-500/20 rounded-md group-hover:bg-green-500/30 transition-all">
-                <DollarSign size={14} className="text-green-300" />
+                <IndianRupee size={14} className="text-green-300" />
               </div>
-              <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Collected</span>
+              <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Collected Amount</span>
             </div>
             <div className="flex flex-col">
               <h3 className="text-xl font-black text-white">₹{dailyReport.revenue.toLocaleString('en-IN')}</h3>
@@ -228,7 +228,7 @@ const Dashboard = () => {
               <div className="p-1.5 bg-amber-500/20 rounded-md group-hover:bg-amber-500/30 transition-all">
                 <BedDouble size={14} className="text-amber-300" />
               </div>
-              <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Occupied</span>
+              <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Occupied Rooms</span>
             </div>
             <div className="flex items-baseline gap-1.5">
               <h3 className="text-2xl font-black text-white">{stats.occupied}</h3>
@@ -275,7 +275,7 @@ const Dashboard = () => {
          <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col h-[280px] border-t-4 border-t-indigo-500">
                 <div className="p-4 border-b border-indigo-100 flex justify-between items-center bg-indigo-50/50 flex-shrink-0">
                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-black text-indigo-900 uppercase tracking-widest">Guest Activity</h3>
+                      <h3 className="text-sm font-black text-indigo-900 uppercase tracking-widest">Customer Activity</h3>
                       <div className="w-5 h-5 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[10px] font-black shadow-sm shadow-indigo-100">{stats.totalGuests}</div>
                    </div>
                    <Link to="/customers" className="text-[9px] font-black text-white hover:bg-indigo-700 uppercase tracking-widest px-2.5 py-1.5 bg-indigo-600 rounded-lg shadow-md shadow-indigo-100 transition-all flex items-center gap-1">
@@ -332,7 +332,7 @@ const Dashboard = () => {
              <div className="bg-white rounded-xl shadow-md border border-gray-100 flex flex-col h-[280px] border-t-4 border-t-emerald-500 overflow-hidden">
                 <div className="p-4 border-b border-emerald-100 flex justify-between items-center bg-emerald-50/50 flex-shrink-0">
                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-black text-emerald-900 uppercase tracking-widest">Inventory Distribution</h3>
+                      <h3 className="text-sm font-black text-emerald-900 uppercase tracking-widest">Rooms Distribution</h3>
                       <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-600 text-white text-[10px] font-black shadow-sm shadow-emerald-100">{stats.total}</div>
                    </div>
                    <Link to="/rooms" className="text-[9px] font-black text-white hover:bg-emerald-700 uppercase tracking-widest px-2.5 py-1.5 bg-emerald-600 rounded-lg shadow-md shadow-emerald-100 transition-all flex items-center gap-1.5">

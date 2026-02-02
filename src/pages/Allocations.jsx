@@ -328,6 +328,8 @@ const Allocations = () => {
     // Sanitization
     if (name === 'guestPhone') {
         value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'registrationNumber') {
+        value = value.replace(/\D/g, '');
     } else if (name === 'guestName') {
         value = value.replace(/[^a-zA-Z\s.'-]/g, '');
     } else if (name === 'guestGstin') {
@@ -1096,7 +1098,10 @@ const Allocations = () => {
 
          {/* Stats Cards */}
          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
+            <div 
+               onClick={() => navigate('/pending')}
+               className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02] cursor-pointer"
+            >
                 <div>
                    <p className="text-indigo-100 text-xs font-black uppercase tracking-wider">Active Bookings</p>
                    <p className="text-3xl font-black text-white mt-1">{stats.activeCount}</p>
@@ -1106,7 +1111,10 @@ const Allocations = () => {
                 </div>
             </div>
             
-            <div className={`bg-gradient-to-br ${statusTab === 'History' ? 'from-emerald-500 to-emerald-600' : 'from-emerald-500 to-emerald-600'} p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]`}>
+            <div 
+               onClick={() => navigate(statusTab === 'History' ? '/completed' : '/rooms')}
+               className={`bg-gradient-to-br ${statusTab === 'History' ? 'from-emerald-500 to-emerald-600' : 'from-emerald-500 to-emerald-600'} p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02] cursor-pointer`}
+            >
                 <div>
                    <p className="text-emerald-100 text-xs font-black uppercase tracking-wider">
                       {statusTab === 'History' ? 'Total Completed' : 'Available Rooms'}
@@ -1120,10 +1128,13 @@ const Allocations = () => {
                 </div>
             </div>
             
-            <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
+            <div 
+               onClick={() => navigate(statusTab === 'History' ? '/customers' : '/employees')}
+               className="bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02] cursor-pointer"
+            >
                 <div>
                    <p className="text-amber-100 text-xs font-black uppercase tracking-wider">
-                      {statusTab === 'History' ? 'Repeat Guests' : 'Duty Staff'}
+                      {statusTab === 'History' ? 'Repeat Customers' : 'Duty Staff'}
                    </p>
                    <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-3xl font-black text-white">
@@ -1189,39 +1200,39 @@ const Allocations = () => {
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-400 text-[10px] uppercase tracking-wider font-bold">
                  <tr>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Sr.No</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Room No</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Customer Name</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Contact No</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Duration</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Duty Staff</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Room No</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Customer Name</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Contact No</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Duration</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Duty Staff</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
                  </tr>
-              </thead>
+              </thead> 
               <tbody className="divide-y divide-gray-100">
                  {filteredAllocations.map((alloc, index) => (
                    <tr key={alloc.id} className="group hover:bg-gray-50/80 transition-all">
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-bold text-gray-400">{(index + 1).toString().padStart(2, '0')}</span>
                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                          <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
                             {alloc.roomSelections 
                                ? alloc.roomSelections.map(s => getRoomNumber(s.roomId)).join(', ') 
                                : getRoomNumber(alloc.roomId)}
                          </span>
                       </td>
-                     <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex flex-col">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex flex-col items-center">
                             <span className="text-sm font-bold text-gray-900">{getCustomerName(alloc.customerId)}</span>
                             <span className="text-[10px] text-gray-400 font-medium">Guest</span>
                         </div>
                      </td>
-                     <td className="px-4 py-3 whitespace-nowrap">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-bold text-gray-700">{getCustomerPhone(alloc.customerId)}</span>
                      </td>
-                     <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="space-y-1">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="space-y-1 flex flex-col items-center">
                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
                               In: {(() => {
                                  const d = new Date(alloc.checkIn);
@@ -1236,7 +1247,7 @@ const Allocations = () => {
                            </div>
                         </div>
                      </td>
-                     <td className="px-4 py-3 whitespace-nowrap">
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-semibold text-gray-700">{getEmployeeName(alloc.employeeId)}</span>
                      </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
@@ -1382,7 +1393,7 @@ const Allocations = () => {
                                       <div className="p-2 bg-indigo-100 rounded-lg">
                                           <User size={20} className="text-indigo-600" />
                                       </div>
-                                      <h3 className="text-lg font-bold text-gray-900">Guest Information</h3>
+                                      <h3 className="text-lg font-bold text-gray-900">Customer Information</h3>
                                   </div>
 
                                   {/* Row 1: Register Number, Customer Name */}
@@ -1392,7 +1403,7 @@ const Allocations = () => {
                                          <input type="text" name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Reg No" />
                                       </div>
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name <span className="text-red-500">*</span></label>
                                          <div className="relative">
                                              <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                                              <input type="text" name="guestName" value={formData.guestName} onChange={handleChange} className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Full Name (e.g. John Doe)" required />
@@ -1413,7 +1424,7 @@ const Allocations = () => {
                                          <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="Company (Optional)" />
                                       </div>
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number <span className="text-red-500">*</span></label>
                                          <div className="relative">
                                              <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                                              <input type="tel" name="guestPhone" value={formData.guestPhone} onChange={handleChange} className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="9876543210" required />
@@ -1428,7 +1439,7 @@ const Allocations = () => {
                                          <input type="text" name="guestGstin" value={formData.guestGstin} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="GSTIN (Optional)" />
                                       </div>
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">ID Proof Type</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">ID Proof Type <span className="text-red-500">*</span></label>
                                          <select name="guestIdProofType" value={formData.guestIdProofType} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" required>
                                             <option value="">Select ID Type</option>
                                             <option value="Aadhar Card">Aadhar Card</option>
@@ -1444,7 +1455,7 @@ const Allocations = () => {
                                   {/* Row 5: ID Number */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Enter ID Proof Number</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Enter ID Proof Number <span className="text-red-500">*</span></label>
                                          <input 
                                            type="text" 
                                            name="guestIdNumber" 
@@ -1474,7 +1485,7 @@ const Allocations = () => {
                                   {/* Row 1: Arrival & Departure */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Common Arrival</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Common Arrival <span className="text-red-500">*</span></label>
                                          <input 
                                             type={focusedFields.checkIn ? "datetime-local" : "text"}
                                             name="checkIn" 
@@ -1487,7 +1498,7 @@ const Allocations = () => {
                                          />
                                       </div>
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Date</label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Date <span className="text-red-500">*</span></label>
                                          <input 
                                             type={focusedFields.checkOut ? "datetime-local" : "text"}
                                             name="checkOut" 
@@ -1549,7 +1560,14 @@ const Allocations = () => {
                                                        type="number" 
                                                        min="1"
                                                        value={selection.numberOfGuests} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'numberOfGuests', Math.max(1, parseInt(e.target.value) || 0))}
+                                                       onChange={(e) => {
+                                                          const val = e.target.value;
+                                                          updateRoomSelection(idx, 'numberOfGuests', val === '' ? '' : parseInt(val));
+                                                       }}
+                                                       onBlur={(e) => {
+                                                          const val = parseInt(e.target.value);
+                                                          if (!val || val < 1) updateRoomSelection(idx, 'numberOfGuests', 1);
+                                                       }}
                                                        className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none no-spinners transition-all"
                                                        placeholder="Guests"
                                                     />
@@ -1561,7 +1579,14 @@ const Allocations = () => {
                                                        type="number" 
                                                        min="1"
                                                        value={selection.stayDuration} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'stayDuration', Math.max(1, parseInt(e.target.value) || 0))}
+                                                       onChange={(e) => {
+                                                          const val = e.target.value;
+                                                          updateRoomSelection(idx, 'stayDuration', val === '' ? '' : parseInt(val));
+                                                       }}
+                                                       onBlur={(e) => {
+                                                          const val = parseInt(e.target.value);
+                                                          if (!val || val < 1) updateRoomSelection(idx, 'stayDuration', 1);
+                                                       }}
                                                        className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none no-spinners transition-all"
                                                        placeholder="Days"
                                                     />

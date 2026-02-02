@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Search,  BedDouble, PieChart, CheckCircle2, Edit3, Trash2, Shield, Filter, X, User } from 'lucide-react';
+import { Plus, Search,  BedDouble, PieChart, CheckCircle2, Edit3, Trash2, Shield, Filter, X, User, ChevronDown } from 'lucide-react';
 
 const Rooms = () => {
   const { rooms, setRooms, allocations, customers } = useAppContext();
@@ -183,7 +183,7 @@ const Rooms = () => {
            
            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
                <div>
-                  <p className="text-emerald-100 text-xs font-black uppercase tracking-wider">Available</p>
+                  <p className="text-emerald-100 text-xs font-black uppercase tracking-wider">Available Rooms</p>
                   <p className="text-3xl font-black text-white mt-1">{stats.available}</p>
                </div>
                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -193,7 +193,7 @@ const Rooms = () => {
            
            <div className="bg-gradient-to-br from-rose-500 to-rose-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
                <div>
-                  <p className="text-rose-100 text-xs font-black uppercase tracking-wider">Occupancy</p>
+                  <p className="text-rose-100 text-xs font-black uppercase tracking-wider">Booked Rooms</p>
                   <div className="flex items-baseline gap-2 mt-1">
                      <span className="text-3xl font-black text-white">{stats.booked}</span>
                      <span className="text-xs text-rose-100 font-bold opacity-80">/ {stats.total}</span>
@@ -232,6 +232,9 @@ const Rooms = () => {
                      <option value="Available">Available</option>
                      <option value="Booked">Booked</option>
                    </select>
+                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      <ChevronDown size={14} />
+                   </div>
                 </div>
 
                 {/* Type Filter */}
@@ -246,6 +249,9 @@ const Rooms = () => {
                      <option value="AC">AC</option>
                      <option value="Non-AC">Non-AC</option>
                    </select>
+                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      <ChevronDown size={14} />
+                   </div>
                 </div>
             </div>
         </div>

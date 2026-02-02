@@ -260,7 +260,7 @@ const Customers = () => {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Guest Ledger</h1>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">customer Ledger</h1>
             <p className="text-gray-500 text-sm mt-1">Manage customer profiles and history</p>
           </div>
           <button 
@@ -275,7 +275,7 @@ const Customers = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
               <div>
-                 <p className="text-indigo-100 text-xs font-black uppercase tracking-wider">Total Guests</p>
+                 <p className="text-indigo-100 text-xs font-black uppercase tracking-wider">Total Customers</p>
                  <p className="text-3xl font-black text-white mt-1">{stats.total}</p>
               </div>
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -285,7 +285,7 @@ const Customers = () => {
            
            <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
               <div>
-                 <p className="text-amber-100 text-xs font-black uppercase tracking-wider">Regular Visitors</p>
+                 <p className="text-amber-100 text-xs font-black uppercase tracking-wider">Regular Customers</p>
                  <p className="text-3xl font-black text-white mt-1">{stats.regulars}</p>
               </div>
                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -295,7 +295,7 @@ const Customers = () => {
            
            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between transform transition-all hover:scale-[1.02]">
               <div>
-                 <p className="text-emerald-100 text-xs font-black uppercase tracking-wider">Active Now</p>
+                 <p className="text-emerald-100 text-xs font-black uppercase tracking-wider">Active Customers </p>
                  <p className="text-3xl font-black text-white mt-1">{stats.activeNow}</p>
               </div>
                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">

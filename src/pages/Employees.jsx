@@ -339,7 +339,7 @@ const Employees = () => {
                  <option value="Inactive">Inactive Only</option>
                </select>
                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                  <Plus size={14} className="rotate-45" />
+                  <ChevronDown size={14} />
                </div>
             </div>
         </div>
@@ -351,12 +351,12 @@ const Employees = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                <tr>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">Sr.No</th>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Staff Name</th>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Contact</th>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned Rooms</th>
-                   <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Actions</th>
+                   <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center whitespace-nowrap">Sr.No</th>
+                   <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center whitespace-nowrap">Staff Name</th>
+                   <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center whitespace-nowrap">Status</th>
+                   <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center whitespace-nowrap">Contact</th>
+                   <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center whitespace-nowrap">Assigned Rooms</th>
+                   <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center whitespace-nowrap">Actions</th>
                </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -367,24 +367,25 @@ const Employees = () => {
                         key={emp.id} 
                         className={`group hover:bg-indigo-50/20 transition-colors even:bg-gray-50/50`}
                      >
-                        <td className="px-6 py-2.5 text-center text-xs font-bold text-gray-400">{(index + 1).toString().padStart(2, '0')}</td>
-                        <td className="px-6 py-2.5">
-                              <span className="text-sm font-bold text-gray-900">{emp.name}</span>
-                              <span className="block text-[10px] text-gray-400 font-medium">{emp.role}</span>
+                        <td className="px-5 py-2.5 text-center text-xs font-bold text-gray-400 whitespace-nowrap">{(index + 1).toString().padStart(2, '0')}</td>
+                        <td className="px-5 py-2.5 text-center whitespace-nowrap">
+                              <div className="flex flex-col items-center">
+                                 <span className="text-sm font-bold text-gray-900">{emp.name}</span>
+                              </div>
                         </td>
-                         <td className="px-6 py-2.5 text-center">
+                         <td className="px-5 py-2.5 text-center whitespace-nowrap">
                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${isInactive ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
                                 {emp.status || 'Active'}
                              </span>
                          </td>
-                        <td className="px-6 py-2.5 text-center">
+                        <td className="px-5 py-2.5 text-center whitespace-nowrap">
                            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-gray-700">
                               <Phone size={12} className="text-gray-400" />
                               {emp.phone}
                            </div>
                         </td>
-                       <td className="px-6 py-2.5">
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                       <td className="px-5 py-2.5 text-center whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1 max-w-[200px] justify-center mx-auto">
                              {emp.assignedRooms?.length > 0 ? (
                                 emp.assignedRooms.slice(0, 3).map(r => (
                                    <span key={r} className="text-[10px] font-bold bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-600 shadow-sm">{r}</span>
@@ -393,7 +394,7 @@ const Employees = () => {
                              {emp.assignedRooms?.length > 3 && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-bold">+{emp.assignedRooms.length - 3}</span>}
                           </div>
                        </td>
-                       <td className="px-6 py-2.5 text-center">
+                       <td className="px-5 py-2.5 text-center whitespace-nowrap">
                            <div className="flex justify-center gap-2">
                                  <button onClick={() => setSelectedEmp(emp)} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View Details"><Eye size={16} /></button>
                                  <button onClick={(e) => handleEditEmp(e, emp)} className="p-1.5 bg-white text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-100 rounded-lg transition-all shadow-sm group-hover:border-amber-200" title="Edit Staff"><Edit3 size={16} /></button>

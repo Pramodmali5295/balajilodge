@@ -1,19 +1,22 @@
 import React from 'react';
+import logoImage from '../assets/logo.jpg';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, BedDouble, Users, UserCheck, X, CalendarClock, CheckSquare, Clock, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
-  const { logout } = useAuth();
+  const { logout, currentUser } = useAuth();
+  const username = currentUser?.email ? currentUser.email.split('@')[0] : 'Staff';
+  const displayUsername = username.charAt(0).toUpperCase() + username.slice(1);
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Add New Customer', path: '/add-booking', icon: <CalendarClock size={20} /> },
-    { name: 'Pending', path: '/pending', icon: <Clock size={20} /> },
-    { name: 'Completed', path: '/completed', icon: <CheckSquare size={20} /> },
-    { name: 'Rooms', path: '/rooms', icon: <BedDouble size={20} /> },
-    { name: 'Employees', path: '/employees', icon: <Users size={20} /> },
+    { name: 'Pending Customer', path: '/pending', icon: <Clock size={20} /> },
+    { name: 'Completed Customer', path: '/completed', icon: <CheckSquare size={20} /> },
+    { name: 'Add Rooms', path: '/rooms', icon: <BedDouble size={20} /> },
+    { name: 'Add Staff ', path: '/employees', icon: <Users size={20} /> },
 
-    { name: 'Cutomer report', path: '/customers', icon: <UserCheck size={20} /> },
+    { name: 'Customer Report', path: '/customers', icon: <UserCheck size={20} /> },
   ];
 
   return (
@@ -41,12 +44,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         {/* Brand Header */}
         <div className="h-20 flex items-center px-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/20">
-                <span className="font-black text-white text-lg">B</span>
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/20 overflow-hidden">
+                <img src={logoImage} alt="Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                   <h1 className="text-lg font-black tracking-tight text-white leading-none">Balaji Lodge</h1>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Management</p>
               </div>
           </div>
         </div>
@@ -78,6 +80,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
         {/* User Profile / Logout */}
         <div className="p-4 border-t border-slate-800">
+             <div className="flex items-center gap-3 px-2 mb-4">
+                <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-500/30">
+                    {displayUsername.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-200 truncate">{displayUsername}</p>
+                    <p className="text-[10px] font-medium text-slate-500 truncate">Logged In</p>
+                </div>
+             </div>
              <button
                 onClick={() => logout()}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-bold text-sm bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/30"
