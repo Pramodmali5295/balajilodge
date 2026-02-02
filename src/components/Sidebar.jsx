@@ -54,7 +54,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 no-scrollbar">
+        <nav className="flex-1 overflow-y-auto py-4 px-4 space-y-1.5 no-scrollbar">
           <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Main Menu</p>
           
           {navItems.map((item) => (
@@ -63,7 +63,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               to={item.path}
               onClick={() => setIsOpen(false)} // Close mobile menu on navigation
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-bold text-sm ${
+                `flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 group font-bold text-sm ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
