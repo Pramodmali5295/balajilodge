@@ -35,6 +35,9 @@ input[type=number] {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {

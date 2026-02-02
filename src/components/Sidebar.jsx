@@ -54,7 +54,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5">
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 no-scrollbar">
           <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Main Menu</p>
           
           {navItems.map((item) => (
