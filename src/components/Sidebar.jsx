@@ -79,8 +79,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </nav>
 
         {/* User Profile / Logout */}
-        <div className="p-4 border-t border-slate-800">
-             <div className="flex items-center gap-3 px-2 mb-4">
+        <div className="p-3 border-t border-slate-800">
+             <div className="flex items-center gap-3 px-2 mb-2">
                 <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-500/30">
                     {displayUsername.charAt(0)}
                 </div>
