@@ -342,7 +342,7 @@ const Allocations = () => {
       
       return matchesSearch && matchesTab && matchesDate;
     }).sort((a, b) => new Date(b.checkIn || 0) - new Date(a.checkIn || 0));
-  }, [allocations, allocationSearch, statusTab, getCustomerName, getRoomNumber, getCustomerPhone]);
+  }, [allocations, allocationSearch, statusTab, dateRange.start, dateRange.end, getCustomerName, getRoomNumber, getCustomerPhone]);
 
   // --- Handlers ---
   const handleChange = (e) => {
