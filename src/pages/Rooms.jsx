@@ -50,14 +50,17 @@ const Rooms = () => {
   const getFloorLabel = (roomNum) => {
     const num = parseInt(roomNum);
     if (isNaN(num)) return 'Other';
+    
+    if (num < 100) return 'Ground Floor';
+    
     const series = Math.floor(num / 100);
     switch(series) {
-      case 1: return 'Ground Floor';
-      case 2: return 'First Floor';
-      case 3: return 'Second Floor';
-      case 4: return 'Third Floor';
-      case 5: return 'Fourth Floor';
-      default: return `${series}00 Series`;
+      case 1: return 'First Floor';
+      case 2: return 'Second Floor';
+      case 3: return 'Third Floor';
+      case 4: return 'Fourth Floor';
+      case 5: return 'Fifth Floor';
+      default: return `${series}th Floor`;
     }
   };
 

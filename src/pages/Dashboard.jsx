@@ -61,6 +61,46 @@ const Dashboard = () => {
      return data;
   }, [rooms]);
 
+  // Compute active assigned rooms from Allocations
+  const employeeRoomMap = useMemo(() => {
+    const map = {};
+    if (!allocations || !rooms) return map;
+
+    allocations.forEach(alloc => {
+      // Check for active status
+      const isActive = alloc.status === 'Active' || !alloc.status;
+      if (isActive && alloc.employeeId) {
+        if (!map[alloc.employeeId]) {
+          map[alloc.employeeId] = new Set();
+        }
+        
+        // Get rooms from this allocation
+        if (alloc.roomSelections && Array.isArray(alloc.roomSelections)) {
+             alloc.roomSelections.forEach(sel => {
+                 const room = rooms.find(r => String(r.id) === String(sel.roomId));
+                 if (room) map[alloc.employeeId].add(room.roomNumber);
+             });
+        } else if (alloc.roomId) {
+             // Backward compatibility
+             const room = rooms.find(r => String(r.id) === String(alloc.roomId));
+             if (room) map[alloc.employeeId].add(room.roomNumber);
+        }
+      }
+    });
+
+    // Convert Sets to Arrays
+    Object.keys(map).forEach(empId => {
+        map[empId] = Array.from(map[empId]).sort((a,b) => {
+             // Try numeric sort
+             const numA = parseInt(a.replace(/\D/g, '')) || 0;
+             const numB = parseInt(b.replace(/\D/g, '')) || 0;
+             return numA - numB;
+        });
+    });
+    
+    return map;
+  }, [allocations, rooms]);
+
   // Daily Report Calculations
   const dailyReport = useMemo(() => {
     const today = new Date();
@@ -421,25 +461,31 @@ const Dashboard = () => {
                        return a.name.localeCompare(b.name);
                      })
                      .slice(0, 15)
-                     .map(emp => (
-                     <div key={emp.id} className="group flex items-start justify-between p-3 hover:bg-gradient-to-r hover:from-amber-50/50 hover:to-transparent rounded-2xl transition-all cursor-default border border-transparent hover:border-amber-100/50">
-                       <div className="flex-1">
-                         <h4 className="font-bold text-gray-800 group-hover:text-amber-700 transition-colors uppercase text-[10px] tracking-tight">{emp.name}</h4>
+                     .map(emp => {
+                       const assignedRooms = employeeRoomMap[emp.id] || [];
+                       return (
+                       <div key={emp.id} className="group flex items-start justify-between p-3 hover:bg-gradient-to-r hover:from-amber-50/50 hover:to-transparent rounded-2xl transition-all cursor-default border border-transparent hover:border-amber-100/50">
+                       <div className="flex-shrink-0 w-24 mr-2 pt-1">
+                         <h4 className="font-bold text-gray-800 group-hover:text-amber-700 transition-colors uppercase text-[10px] tracking-tight truncate" title={emp.name}>{emp.name}</h4>
                          <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mt-0.5">{emp.role}</p>
                        </div>
-                       <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
-                          {emp.assignedRooms?.length > 0 ? (
-                             emp.assignedRooms.map(room => (
-                               <span key={room} className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md text-[8px] font-black border border-amber-100/50 shadow-sm">
+                       <div className="flex-1 grid grid-cols-5 gap-1 justify-items-end">
+                          {assignedRooms.length > 0 ? (
+                             assignedRooms.map(room => (
+                               <span key={room} className="w-full text-center px-0.5 py-1 bg-amber-50 text-amber-700 rounded-md text-[8px] font-black border border-amber-100/50 shadow-sm whitespace-nowrap overflow-hidden">
                                  {room}
                                </span>
                              ))
                           ) : (
-                             <span className="text-[7px] font-black text-gray-300 uppercase tracking-widest italic">Free</span>
+                             <div className="col-span-5 flex justify-end">
+                                <span className="text-[7px] font-black text-gray-300 uppercase tracking-widest italic">Free</span>
+                             </div>
                           )}
                        </div>
                      </div>
-                   ))
+                     );
+                   })
+
                 )}
              </div>
          </div>

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 const Employees = () => {
-  const { employees, setEmployees, rooms } = useAppContext();
+  const { employees, setEmployees, allocations, rooms } = useAppContext();
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -54,18 +54,47 @@ const Employees = () => {
     return { total, active, inactive };
   }, [employees]);
 
-  // Track rooms assigned to other employees to prevent double assignment
-  const takenRoomsMap = useMemo(() => {
-    const map = new Map();
-    employees.forEach(emp => {
-      if (emp.id !== editingId && emp.assignedRooms) {
-        emp.assignedRooms.forEach(roomNum => {
-          map.set(String(roomNum), emp.name); // Normalize to string
-        });
+
+
+  // Compute active assigned rooms from Allocations
+  const employeeRoomMap = useMemo(() => {
+    const map = {};
+    if (!allocations || !rooms) return map;
+
+    allocations.forEach(alloc => {
+      // Check for active status
+      const isActive = alloc.status === 'Active' || !alloc.status;
+      if (isActive && alloc.employeeId) {
+        if (!map[alloc.employeeId]) {
+          map[alloc.employeeId] = new Set();
+        }
+        
+        // Get rooms from this allocation
+        if (alloc.roomSelections && Array.isArray(alloc.roomSelections)) {
+             alloc.roomSelections.forEach(sel => {
+                 const room = rooms.find(r => String(r.id) === String(sel.roomId));
+                 if (room) map[alloc.employeeId].add(room.roomNumber);
+             });
+        } else if (alloc.roomId) {
+             // Backward compatibility
+             const room = rooms.find(r => String(r.id) === String(alloc.roomId));
+             if (room) map[alloc.employeeId].add(room.roomNumber);
+        }
       }
     });
+
+    // Convert Sets to Arrays
+    Object.keys(map).forEach(empId => {
+        map[empId] = Array.from(map[empId]).sort((a,b) => {
+             // Try numeric sort
+             const numA = parseInt(a.replace(/\D/g, '')) || 0;
+             const numB = parseInt(b.replace(/\D/g, '')) || 0;
+             return numA - numB;
+        });
+    });
+    
     return map;
-  }, [employees, editingId]);
+  }, [allocations, rooms]);
 
   const handleChange = (e) => {
     let { name, value } = e.target;
@@ -94,14 +123,7 @@ const Employees = () => {
     setShowForm(false);
   };
 
-  const handleRoomToggle = (roomNumber) => {
-    setFormData(prev => {
-      const assigned = prev.assignedRooms.includes(roomNumber)
-        ? prev.assignedRooms.filter(r => r !== roomNumber)
-        : [...prev.assignedRooms, roomNumber];
-      return { ...prev, assignedRooms: assigned };
-    });
-  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -238,7 +260,8 @@ const Employees = () => {
        emp.idProofType || 'Aadhar',
        emp.aadharNumber || '',
        emp.address || '',
-       emp.assignedRooms ? emp.assignedRooms.join('; ') : ''
+       emp.address || '',
+       employeeRoomMap[emp.id] ? employeeRoomMap[emp.id].join('; ') : ''
      ]);
     const csvContent = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -384,16 +407,25 @@ const Employees = () => {
                               {emp.phone}
                            </div>
                         </td>
-                       <td className="px-5 py-2.5 text-center whitespace-nowrap">
-                          <div className="flex flex-wrap gap-1 max-w-[200px] justify-center mx-auto">
-                             {emp.assignedRooms?.length > 0 ? (
-                                emp.assignedRooms.slice(0, 3).map(r => (
-                                   <span key={r} className="text-[10px] font-bold bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-600 shadow-sm">{r}</span>
-                                ))
-                             ) : <span className="text-gray-400 text-[10px] italic">No Rooms</span>}
-                             {emp.assignedRooms?.length > 3 && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-bold">+{emp.assignedRooms.length - 3}</span>}
-                          </div>
-                       </td>
+                        <td className="px-5 py-2.5 text-center whitespace-nowrap">
+                           <div className="flex flex-wrap gap-1 max-w-[200px] justify-center mx-auto">
+                              {(() => {
+                                 const assignedRooms = employeeRoomMap[emp.id] || [];
+                                 if (assignedRooms.length > 0) {
+                                    return (
+                                      <>
+                                        {assignedRooms.slice(0, 3).map(r => (
+                                           <span key={r} className="text-[10px] font-bold bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-600 shadow-sm">{r}</span>
+                                        ))}
+                                        {assignedRooms.length > 3 && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-bold">+{assignedRooms.length - 3}</span>}
+                                      </>
+                                    );
+                                 } else {
+                                     return <span className="text-gray-400 text-[10px] italic">No Rooms</span>;
+                                 }
+                              })()}
+                           </div>
+                        </td>
                        <td className="px-5 py-2.5 text-center whitespace-nowrap">
                            <div className="flex justify-center gap-2">
                                  <button onClick={() => setSelectedEmp(emp)} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View Details"><Eye size={16} /></button>
@@ -505,20 +537,23 @@ const Employees = () => {
                             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                                <div className="flex justify-between items-center mb-4">
                                   <span className="text-xs font-bold text-gray-500 uppercase">Assigned Rooms</span>
-                                  <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{selectedEmp.assignedRooms?.length || 0} Total</span>
+                                  <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{(employeeRoomMap[selectedEmp.id] || []).length} Total</span>
                                </div>
                                
-                               <div className="flex flex-wrap gap-2">
-                                  {selectedEmp.assignedRooms && selectedEmp.assignedRooms.length > 0 ? (
-                                     selectedEmp.assignedRooms.map(roomNum => (
-                                        <span key={roomNum} className="px-3 py-1.5 bg-blue-50 border border-blue-100 text-blue-700 text-sm font-black rounded-lg">
-                                           {roomNum}
-                                        </span>
-                                     ))
-                                  ) : (
-                                     <p className="text-sm text-gray-400 italic font-medium">No rooms currently assigned.</p>
-                                  )}
-                               </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {(() => {
+                                     const assignedRooms = employeeRoomMap[selectedEmp.id] || [];
+                                     return assignedRooms.length > 0 ? (
+                                        assignedRooms.map(roomNum => (
+                                           <span key={roomNum} className="px-3 py-1.5 bg-blue-50 border border-blue-100 text-blue-700 text-sm font-black rounded-lg">
+                                              {roomNum}
+                                           </span>
+                                        ))
+                                     ) : (
+                                        <p className="text-sm text-gray-400 italic font-medium">No rooms currently assigned.</p>
+                                     );
+                                  })()}
+                                </div>
                             </div>
                          </section>
 
@@ -665,52 +700,7 @@ const Employees = () => {
 
                   </div>
 
-                  {/* Bottom Section: Room Assignment */}
-                  <div className="flex flex-col">
-                     <div className="bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden shadow-inner">
-                        <div className="px-4 py-2 border-b border-gray-200 bg-gray-100/50 flex justify-between items-center tracking-tight">
-                           <div className="flex items-center gap-2">
-                              <Briefcase size={12} className="text-gray-400" />
-                              <h3 className="text-[10px] font-bold text-gray-500 uppercase">Room Responsibility</h3>
-                           </div>
-                           <span className="text-[10px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full">{formData.assignedRooms.length} Selected</span>
-                        </div>
-                        
-                        <div className="p-3 bg-white/50">
-                           <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-10 gap-2">
-                              {rooms
-                                .filter(room => !takenRoomsMap.has(String(room.roomNumber)))
-                                .sort((a, b) => {
-                                   const numA = parseInt(a.roomNumber.replace(/\D/g, '')) || 0;
-                                   const numB = parseInt(b.roomNumber.replace(/\D/g, '')) || 0;
-                                   return numA - numB;
-                                })
-                                .map(room => {
-                                 const isSelected = formData.assignedRooms.some(r => String(r) === String(room.roomNumber));
-                                 
-                                 return (
-                                   <button
-                                     key={room.id}
-                                     type="button"
-                                     onClick={() => handleRoomToggle(room.roomNumber)}
-                                     className={`relative group p-1.5 rounded-lg text-xs font-bold border transition-all ${
-                                       isSelected
-                                         ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm'
-                                         : 'bg-white border-gray-200 text-gray-400 hover:border-blue-300'
-                                     }`}
-                                   >
-                                      {room.roomNumber}
-                                   </button>
-                                 );
-                               })}
-                           </div>
-                        </div>
-                        
-                        <div className="p-3 bg-gray-100 border-t border-gray-200 text-center">
-                            <p className="text-xs text-gray-400">Select rooms that this employee is responsible for.</p>
-                        </div>
-                     </div>
-                  </div>
+
 
                      <div className="pt-4">
                         <button 
