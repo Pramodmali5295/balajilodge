@@ -1087,7 +1087,7 @@ const Allocations = () => {
               {statusTab === 'History' 
                 ? 'Completed Bookings' 
                 : location.pathname.includes('pending') 
-                  ? 'Pending' 
+                  ? 'Pending Customers' 
                   : 'Add Booking'}
             </h1>
              <p className="text-gray-500 text-sm mt-1">{statusTab === 'Live' ? 'New check-ins & active customers' : 'View past booking history'}</p>
@@ -1579,7 +1579,7 @@ const Allocations = () => {
                                                           <option value="Non-AC">Non-AC</option>
                                                        </select>
                                                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                                                    </div>
+                                                    </div> 
                                                  </div>
 
                                                  {/* Room Select */}
