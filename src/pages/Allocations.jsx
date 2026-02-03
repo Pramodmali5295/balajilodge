@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore'; 
-import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown } from 'lucide-react';
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown, Calendar } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 import html2pdf from 'html2pdf.js';
 
@@ -92,6 +92,7 @@ const Allocations = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [allocationSearch, setAllocationSearch] = useState('');
   const [statusTab, setStatusTab] = useState('Live');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const location = useLocation();
   const navigate = useNavigate();
   const isAddBookingPage = location.pathname.includes('add-booking');
@@ -105,6 +106,7 @@ const Allocations = () => {
 
     if (location.pathname.includes('completed')) {
       setStatusTab('History');
+      setShowCheckInModal(false);
     } else if (location.pathname.includes('pending')) {
       setStatusTab('Live');
       setShowCheckInModal(false); // Ensure modal is closed when viewing pending list
@@ -321,7 +323,24 @@ const Allocations = () => {
       
 
       
-      return matchesSearch && matchesTab;
+      // Date Range Filter logic (Only for History)
+      let matchesDate = true;
+      if (statusTab === 'History' && (dateRange.start || dateRange.end)) {
+         const checkOutDate = alloc.actualCheckOut ? new Date(alloc.actualCheckOut) : new Date(alloc.checkOut);
+         
+         if (dateRange.start) {
+            const start = new Date(dateRange.start);
+            start.setHours(0,0,0,0);
+            if (checkOutDate < start) matchesDate = false;
+         }
+         if (dateRange.end && matchesDate) {
+            const end = new Date(dateRange.end);
+            end.setHours(23,59,59,999);
+            if (checkOutDate > end) matchesDate = false;
+         }
+      }
+      
+      return matchesSearch && matchesTab && matchesDate;
     }).sort((a, b) => new Date(b.checkIn || 0) - new Date(a.checkIn || 0));
   }, [allocations, allocationSearch, statusTab, getCustomerName, getRoomNumber, getCustomerPhone]);
 
@@ -1174,6 +1193,48 @@ const Allocations = () => {
             </div>
 
             <div className="flex items-center gap-3 w-full lg:w-auto">
+                 {/* DATE FILTER for History */}
+                 {statusTab === 'History' && (
+                    <div className="flex items-center gap-2">
+                       {/* From Date */}
+                       <div className="relative group bg-white hover:bg-gray-50 rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 transition-all shadow-sm">
+                           <Calendar size={14} className="text-indigo-500" />
+                           <span className={`text-xs font-bold ${dateRange.start ? 'text-gray-700' : 'text-gray-400'}`}>
+                              {dateRange.start ? dateRange.start.split('-').reverse().join('/') : 'DD/MM/YYYY'}
+                           </span>
+                           <input 
+                              type="date" 
+                              value={dateRange.start} 
+                              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              title="Select Start Date"
+                           />
+                       </div>
+
+                       <span className="text-gray-400 font-bold">-</span>
+
+                       {/* To Date */}
+                       <div className="relative group bg-white hover:bg-gray-50 rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 transition-all shadow-sm">
+                           <Calendar size={14} className="text-indigo-500" />
+                           <span className={`text-xs font-bold ${dateRange.end ? 'text-gray-700' : 'text-gray-400'}`}>
+                              {dateRange.end ? dateRange.end.split('-').reverse().join('/') : 'DD/MM/YYYY'}
+                           </span>
+                           <input 
+                              type="date" 
+                              value={dateRange.end} 
+                              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              title="Select End Date"
+                           />
+                       </div>
+
+                       {(dateRange.start || dateRange.end) && (
+                          <button onClick={() => setDateRange({start: '', end: ''})} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors" title="Clear Dates">
+                             <X size={14}/>
+                          </button>
+                       )}
+                    </div>
+                 )}
                  {/* Status Filters - Segmented Control Style */}
                  {(!location.pathname.includes('add-customer') && !location.pathname.includes('completed')) && (
                      <div className="flex bg-gray-50 p-1 rounded-lg border border-gray-100 shrink-0">
@@ -1224,12 +1285,48 @@ const Allocations = () => {
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-bold text-gray-400">{(index + 1).toString().padStart(2, '0')}</span>
                      </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                         <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
-                            {alloc.roomSelections 
-                               ? alloc.roomSelections.map(s => getRoomNumber(s.roomId)).join(', ') 
-                               : getRoomNumber(alloc.roomId)}
-                         </span>
+                      <td className="px-4 py-3 text-center whitespace-nowrap overflow-visible">
+                         {(() => {
+                            const roomsList = (alloc.roomSelections 
+                               ? alloc.roomSelections.map(s => getRoomNumber(s.roomId)) 
+                               : [getRoomNumber(alloc.roomId)])
+                               .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                            
+                            if (roomsList.length > 1) {
+                               return (
+                                  <div className="relative flex flex-col items-center gap-1 group cursor-pointer z-0 hover:z-20">
+                                     <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                                        {roomsList[0]}
+                                     </span>
+                                     <span className="text-[10px] font-bold text-gray-500 bg-white px-2 py-0.5 rounded-full border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors">
+                                        +{roomsList.length - 1} More
+                                     </span>
+
+                                     {/* Custom Tooltip */}
+                                     <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-max max-w-[250px] bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform group-hover:translate-y-0 -translate-y-2 pointer-events-none z-50 border border-white/10">
+                                        <div className="px-3 py-2 border-b border-white/10 bg-white/5 rounded-t-xl">
+                                            <p className="font-bold text-[10px] uppercase tracking-wider text-gray-400">All Booked Rooms</p>
+                                        </div>
+                                        <div className="p-3 flex flex-wrap gap-1.5 justify-center">
+                                            {roomsList.map((room, idx) => (
+                                                <span key={idx} className="bg-white/10 px-1.5 py-0.5 rounded text-white font-bold border border-white/10">
+                                                    {room}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        {/* Arrow */}
+                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-900 rotate-45 border-l border-t border-white/10"></div>
+                                     </div>
+                                  </div>
+                               );
+                            }
+                            
+                            return (
+                               <span className="inline-flex items-center justify-center min-w-[3rem] text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                                  {roomsList[0]}
+                               </span>
+                            );
+                         })()}
                       </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="flex flex-col items-center">
@@ -1672,7 +1769,7 @@ const Allocations = () => {
                                                        type="number" 
                                                        min="0"
                                                        value={selection.basePrice} 
-                                                       onChange={(e) => updateRoomSelection(idx, 'basePrice', Math.max(0, parseInt(e.target.value) || 0))}
+                                                       onChange={(e) => updateRoomSelection(idx, 'basePrice', e.target.value)}
                                                        className="w-full pl-6 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 no-spinners transition-all"
                                                        placeholder="Price"
                                                     />

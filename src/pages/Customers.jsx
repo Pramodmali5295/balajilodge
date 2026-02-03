@@ -141,15 +141,18 @@ const Customers = () => {
        const customerStays = allocations.filter(a => String(a.customerId) === String(c.id));
        const visitCount = customerStays.length;
        
+       // Helper for DD/MM/YYYY
+       const fmtDate = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
        // Calculate Last Visit
        let lastVisit = 'N/A';
        if (customerStays.length > 0) {
           const lastDate = new Date(Math.max(...customerStays.map(a => new Date(a.checkIn).getTime())));
-          lastVisit = lastDate.toLocaleDateString();
+          lastVisit = fmtDate(lastDate);
        }
 
        // Format Created At
-       const registered = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Unknown';
+       const registered = c.createdAt ? fmtDate(new Date(c.createdAt)) : 'Unknown';
 
        // Parse ID Proof into Type and Number
        let idType = '';
@@ -260,7 +263,7 @@ const Customers = () => {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">customer Ledger</h1>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Customer Ledger</h1>
             <p className="text-gray-500 text-sm mt-1">Manage customer profiles and history</p>
           </div>
           <button 
@@ -311,7 +314,7 @@ const Customers = () => {
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
             <input 
               type="text" 
-              placeholder="Search guests by name or phone..." 
+              placeholder="Search customer by name or phone..." 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg text-sm font-medium outline-none transition-all" 
@@ -408,7 +411,7 @@ const Customers = () => {
                ) : (
                   <tr>
                      <td colSpan="5" className="px-6 py-12 text-center text-gray-400 italic">
-                        No guests found matching your criteria.
+                        No customers found matching your criteria.
                      </td>
                   </tr>
                )}
