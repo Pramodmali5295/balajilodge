@@ -25,7 +25,7 @@ const Dashboard = () => {
     const available = rooms.filter(r => r.status === 'Available').length;
     const occupied = rooms.filter(r => r.status === 'Booked').length;
     const activeStays = allocations.filter(a => a.status === 'Active' || !a.status).length;
-    const totalStaff = employees.length;
+    const totalStaff = employees.filter(e => e.status !== 'Inactive').length;
     const totalGuests = customers.length;
     
     return { total, available, occupied, activeStays, totalStaff, totalGuests };
@@ -407,10 +407,11 @@ const Dashboard = () => {
             </div>
             
              <div className="flex-1 p-4 space-y-3 overflow-y-auto custom-scrollbar">
-                {employees.length === 0 ? (
+                {employees.filter(e => e.status !== 'Inactive').length === 0 ? (
                    <div className="px-4 py-20 text-center text-gray-400 font-bold italic">No active staff members</div>
                 ) : (
-                   [...employees]
+                   employees
+                     .filter(e => e.status !== 'Inactive')
                      .sort((a, b) => {
                        // Sort by createdAt timestamp (most recent first)
                        if (a.createdAt || b.createdAt) {
