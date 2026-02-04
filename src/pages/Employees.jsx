@@ -35,14 +35,6 @@ const Employees = () => {
   });
   const [editingId, setEditingId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => setSuccessMsg(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg]);
 
   const roles = ['Room Assistant'];
 
@@ -190,7 +182,7 @@ const Employees = () => {
         });
       }
       
-      setSuccessMsg(editingId ? 'Staff updated successfully!' : 'Staff adding successfully!');
+      alert(editingId ? 'Staff updated successfully!' : 'Staff adding successfully!');
       setShowForm(false);
       resetForm();
     } catch (error) {
@@ -224,6 +216,7 @@ const Employees = () => {
          const employeeRef = doc(db, "employees", empId);
          await deleteDoc(employeeRef);
          setEmployees(prev => prev.filter(e => e.id !== empId));
+         alert("Staff deleted successfully");
        } catch (error) {
          console.error("Delete failed:", error);
          setEmployees(prev => prev.filter(e => e.id !== empId)); // Optimistic
@@ -580,15 +573,16 @@ const Employees = () => {
       `}</style>
       {/* Add Employee Modal */}
       {showForm && createPortal(
-        <div className="fixed inset-0 z-50 bg-white animate-fade-in">
-          <div className="bg-white w-full h-full flex flex-col overflow-hidden animate-slide-up relative my-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={resetForm} />
+          <div className="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-scale-in max-h-[90vh]">
             <div className="bg-blue-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
                <div>
                   <h2 className="text-xl font-bold">{editingId ? 'Edit Staff Profile' : 'New Staff Registration'}</h2>
                   <p className="text-blue-100 text-xs opacity-90">{editingId ? 'Update employee details' : 'Onboard new staff member'}</p>
                </div>
-               <button onClick={resetForm} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-bold transition-all text-white">
-                  Close
+               <button onClick={resetForm} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white">
+                  <X size={20} />
                </button>
             </div>
             
@@ -702,13 +696,20 @@ const Employees = () => {
 
 
 
-                     <div className="pt-4">
+                     <div className="pt-6 flex gap-3">
+                        <button 
+                           type="button" 
+                           onClick={resetForm}
+                           className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all active:scale-[0.98] text-sm"
+                        >
+                           Cancel
+                        </button>
                         <button 
                            type="submit" 
                            disabled={isSubmitting} 
-                           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 flex justify-center items-center gap-2 text-sm"
+                           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 flex justify-center items-center gap-2 text-sm"
                         >
-                           {isSubmitting ? 'Saving...' : <>{editingId ? <Edit3 size={18} /> : <Plus size={18} />} {editingId ? 'Update Info' : 'Register Employee'}</>}
+                           {isSubmitting ? 'Saving...' : <>{editingId ? <Edit3 size={18} /> : <Plus size={18} />} {editingId ? 'Update Info' : 'Register'}</>}
                         </button>
                      </div>
                   </form>
@@ -718,22 +719,7 @@ const Employees = () => {
         document.body
       )}
 
-      {/* Success Toast */}
-      {successMsg && createPortal(
-        <div className="fixed top-6 right-6 z-[100] animate-slide-in-down">
-          <div className="bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3">
-             <div className="bg-white/20 p-2 rounded-full">
-               <CheckCircle2 size={24} />
-             </div>
-             <div>
-               <h4 className="font-bold text-sm">Success</h4>
-               <p className="text-emerald-100 text-xs">{successMsg}</p>
-             </div>
-             <button onClick={() => setSuccessMsg('')} className="ml-2 text-emerald-200 hover:text-white"><X size={18} /></button>
-          </div>
-        </div>,
-        document.body
-      )}
+
 
     </div>
   );

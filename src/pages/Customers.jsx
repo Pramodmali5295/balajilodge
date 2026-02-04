@@ -42,30 +42,29 @@ const Customers = () => {
       c.phone?.includes(searchTerm)
     );
 
-    // Apply Date Filter
+   // Apply Date Filter
     if (dateRange.start || dateRange.end) {
+      const start = dateRange.start ? new Date(dateRange.start) : null;
+      const end = dateRange.end ? new Date(dateRange.end) : null;
+      if (start) start.setHours(0, 0, 0, 0);
+      if (end) end.setHours(23, 59, 59, 999);
+
       list = list.filter(c => {
-        let guestDate;
-        if (c.createdAt) {
-          guestDate = new Date(c.createdAt);
-        } else {
-          const stays = allocations.filter(al => String(al.customerId) === String(c.id));
-          if (stays.length > 0) {
-            guestDate = new Date(Math.max(...stays.map(al => new Date(al.checkIn).getTime())));
-          }
-        }
+         // Check creation date
+         let createdInRange = false;
+         if (c.createdAt) {
+             const cDate = new Date(c.createdAt);
+             createdInRange = (!start || cDate >= start) && (!end || cDate <= end);
+         }
 
-        if (!guestDate) return false;
+         // Check visits (Allocations)
+         const hasVisitInRange = allocations.some(a => {
+             if (String(a.customerId) !== String(c.id)) return false;
+             const checkIn = new Date(a.checkIn);
+             return (!start || checkIn >= start) && (!end || checkIn <= end);
+         });
 
-        const start = dateRange.start ? new Date(dateRange.start) : null;
-        const end = dateRange.end ? new Date(dateRange.end) : null;
-        
-        if (start) start.setHours(0, 0, 0, 0);
-        if (end) end.setHours(23, 59, 59, 999);
-        
-        if (start && guestDate < start) return false;
-        if (end && guestDate > end) return false;
-        return true;
+         return createdInRange || hasVisitInRange;
       });
     }
 
@@ -124,31 +123,52 @@ const Customers = () => {
       'Customer Type',
       'First Registered', 
       'Last Visit',
-      'Total Visits',
-      'Total Amount (Without GST)', 
-      'Total CGST (6%)', 
-      'Total SGST (6%)', 
-      'Total Amount (With GST)', 
-      'Advance Amount',
-      'Payment Methods Used',
+      'Visits (In Range)',
+      'Total Visits (Lifetime)',
+      'Range Total (Without GST)', 
+      'Range CGST (6%)', 
+      'Range SGST (6%)', 
+      'Range Total (With GST)', 
+      'Range Advance',
+      'Payment Methods',
       'Register Nos', 
       'Booking IDs', 
       'Booked Rooms'
     ];
     
     const rows = filteredCustomers.map((c, index) => {
-       // Calculate visits stats
-       const customerStays = allocations.filter(a => String(a.customerId) === String(c.id));
-       const visitCount = customerStays.length;
+       // Get ALL stays for history stats
+       const allStays = allocations.filter(a => String(a.customerId) === String(c.id));
+       const lifetimeVisits = allStays.length;
+
+       // Get Filtered stays for Ledger Calculation
+       let rangeStays = [...allStays];
+       if (dateRange.start || dateRange.end) {
+           const start = dateRange.start ? new Date(dateRange.start) : null;
+           const end = dateRange.end ? new Date(dateRange.end) : null;
+           if (start) start.setHours(0, 0, 0, 0);
+           if (end) end.setHours(23, 59, 59, 999);
+
+           rangeStays = rangeStays.filter(a => {
+               const checkIn = new Date(a.checkIn);
+               return (!start || checkIn >= start) && (!end || checkIn <= end);
+           });
+       }
+
+       const visitCountInRange = rangeStays.length;
        
        // Helper for DD/MM/YYYY
        const fmtDate = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 
-       // Calculate Last Visit
+       // Calculate Last Visit (from ALL stays usually, or just range? Use Range if available, else N/A)
        let lastVisit = 'N/A';
-       if (customerStays.length > 0) {
-          const lastDate = new Date(Math.max(...customerStays.map(a => new Date(a.checkIn).getTime())));
+       if (rangeStays.length > 0) {
+          const lastDate = new Date(Math.max(...rangeStays.map(a => new Date(a.checkIn).getTime())));
           lastVisit = fmtDate(lastDate);
+       } else if (allStays.length > 0) {
+          // Fallback to show they visited before, but indicate it wasnt in range?
+          // The user asked for specific date csv. 
+          // If 0 stays in range, lastVisit in range is N/A.
        }
 
        // Format Created At
@@ -163,8 +183,8 @@ const Customers = () => {
           idNumber = c.idProof || '';
        }
 
-       // Get all booked rooms
-       const allRooms = customerStays.map(stay => {
+       // Get all booked rooms (In Range)
+       const allRooms = rangeStays.map(stay => {
            if (stay.roomSelections && stay.roomSelections.length > 0) {
                return stay.roomSelections.map(s => {
                    const r = rooms.find(rm => String(rm.id) === String(s.roomId));
@@ -176,29 +196,26 @@ const Customers = () => {
            }
        }).filter(Boolean).join(' | ');
 
-       // Get Registration Numbers and Booking IDs
-       const regNos = [...new Set(customerStays.map(s => s.registrationNumber).filter(Boolean))].join(' | ');
-       const bookingIds = [...new Set(customerStays.map(s => s.externalBookingId).filter(Boolean))].join(' | ');
+       // Get Registration Numbers and Booking IDs (In Range)
+       const regNos = [...new Set(rangeStays.map(s => s.registrationNumber).filter(Boolean))].join(' | ');
+       const bookingIds = [...new Set(rangeStays.map(s => s.externalBookingId).filter(Boolean))].join(' | ');
 
-       // Calculate financial totals
-       // IMPORTANT: stay.price already includes GST
-       // We need to extract the base amount and GST from the total
+       // Calculate financial totals (In Range)
        let totalRevenue = 0;
        let totalCGST = 0;
        let totalSGST = 0;
        let totalAmount = 0;
        let advanceAmount = 0;
 
-       customerStays.forEach(stay => {
+       rangeStays.forEach(stay => {
           const totalPrice = Number(stay.price) || 0; // This is total WITH GST
           const gstRate = Number(stay.gstRate) || 12; // GST percentage
           
           // Calculate base amount: Total = Base × (1 + GST/100)
-          // Therefore: Base = Total / (1 + GST/100)
           const basePrice = totalPrice / (1 + gstRate / 100);
           const gstAmount = totalPrice - basePrice;
-          const cgst = gstAmount / 2; // Half of GST is CGST
-          const sgst = gstAmount / 2; // Half of GST is SGST
+          const cgst = gstAmount / 2;
+          const sgst = gstAmount / 2;
           
           totalRevenue += basePrice;
           totalCGST += cgst;
@@ -207,8 +224,8 @@ const Customers = () => {
           advanceAmount += Number(stay.advanceAmount) || 0;
        });
        
-       // Get unique payment methods
-       const paymentMethods = [...new Set(customerStays
+       // Get unique payment methods (In Range)
+       const paymentMethods = [...new Set(rangeStays
           .map(stay => stay.paymentType)
           .filter(Boolean))].join(', ') || 'N/A';
 
@@ -232,7 +249,8 @@ const Customers = () => {
           escapeCsv(c.customerType || c.guestType || 'Regular'),
           registered,
           lastVisit,
-          visitCount,
+          visitCountInRange,
+          lifetimeVisits,
           totalRevenue.toFixed(2),
           totalCGST.toFixed(2),
           totalSGST.toFixed(2),
@@ -358,10 +376,10 @@ const Customers = () => {
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
               <tr>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">Sr. No</th>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact Info</th>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Address</th>
-                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Identification</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Name</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Contact Info</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Address</th>
+                <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Identification</th>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
@@ -372,23 +390,23 @@ const Customers = () => {
                       <td className="px-6 py-2.5 text-center text-xs font-bold text-gray-400">
                         {(index + 1).toString().padStart(2, '0')}
                       </td>
-                      <td className="px-6 py-2.5">
+                      <td className="px-6 py-2.5 text-center">
                         <span className="text-sm font-bold text-gray-900">{customer.name}</span>
                       </td>
-                      <td className="px-6 py-2.5">
-                         <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                      <td className="px-6 py-2.5 text-center">
+                         <div className="flex items-center justify-center gap-2 text-xs font-semibold text-gray-700">
                             <Phone size={14} className="text-gray-400" />
                             {customer.phone}
                          </div>
                       </td>
-                      <td className="px-6 py-2.5">
-                         <div className="flex items-center gap-2 text-xs font-medium text-gray-500 max-w-[200px]">
+                      <td className="px-6 py-2.5 text-center">
+                         <div className="flex items-center justify-center gap-2 text-xs font-medium text-gray-500 max-w-[200px] mx-auto">
                             <MapPin size={14} className="text-gray-300 shrink-0" />
                             <span className="truncate" title={customer.address}>{customer.address || '---'}</span>
                          </div>
                       </td>
-                      <td className="px-6 py-2.5">
-                          <div className="flex items-center gap-2 text-xs font-bold text-gray-600 bg-white border border-gray-100 px-2 py-1 rounded-md w-fit shadow-sm">
+                      <td className="px-6 py-2.5 text-center">
+                          <div className="flex items-center justify-center gap-2 text-xs font-bold text-gray-600 bg-white border border-gray-100 px-2 py-1 rounded-md w-fit mx-auto shadow-sm">
                             <FileText size={14} className="text-indigo-300" />
                             {customer.idProof}
                          </div>
@@ -398,9 +416,7 @@ const Customers = () => {
                             <button onClick={() => { setSelectedGuest(customer); setShowViewModal(true); }} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View History">
                                <Eye size={16} />
                             </button>
-                            <button onClick={() => handleEdit(customer)} className="p-1.5 bg-white text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-100 rounded-lg transition-all shadow-sm group-hover:border-amber-200" title="Edit Details">
-                               <Edit3 size={16} />
-                            </button>
+
                             <button onClick={() => handleDelete(customer.id)} className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
                                <Trash2 size={16} />
                             </button>
@@ -539,7 +555,12 @@ const Customers = () => {
                                  const lastDate = new Date(Math.max(...stays.map(a => new Date(a.checkIn).getTime())));
                                  return <p className="text-xl font-bold text-gray-800">{(() => {
                                     const d = new Date(lastDate);
-                                    return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                    let hrs = d.getHours();
+                                    const mins = String(d.getMinutes()).padStart(2, '0');
+                                    const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                    hrs = hrs % 12;
+                                    hrs = hrs ? hrs : 12;
+                                    return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                                  })()}</p>;
                               })()}
                            </div>
@@ -596,7 +617,12 @@ const Customers = () => {
                                                     <span className="text-[10px] text-gray-400 uppercase font-bold block">Check In</span>
                                                     <span className="font-bold text-gray-800">{(() => {
                                                        const d = new Date(stay.checkIn);
-                                                       return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                                       let hrs = d.getHours();
+                                                       const mins = String(d.getMinutes()).padStart(2, '0');
+                                                       const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                                       hrs = hrs % 12;
+                                                       hrs = hrs ? hrs : 12;
+                                                       return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                                                     })()}</span>
                                                  </div>
                                                  <div className="bg-gray-50 p-2 rounded border border-gray-100">

@@ -353,7 +353,12 @@ const Dashboard = () => {
                                   <span className="text-xs font-black text-gray-800 group-hover:text-indigo-600 transition-colors uppercase tracking-tight truncate max-w-[120px]">{getCustomerName(alloc.customerId)}</span>
                                   <span className="text-[8px] font-bold text-gray-400 uppercase">IN: {(() => {
                                       const d = new Date(alloc.checkIn);
-                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                      let hrs = d.getHours();
+                                      const mins = String(d.getMinutes()).padStart(2, '0');
+                                      const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                      hrs = hrs % 12;
+                                      hrs = hrs ? hrs : 12;
+                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                                   })()}</span>
                                </div>
                             </td>

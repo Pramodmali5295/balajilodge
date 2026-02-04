@@ -20,14 +20,6 @@ const Rooms = () => {
   });
   const [editingId, setEditingId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => setSuccessMsg(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -107,8 +99,7 @@ const Rooms = () => {
         const roomsCollection = collection(db, "rooms");
         await addDoc(roomsCollection, formData);
       }
-      setSuccessMsg(editingId ? 'Room updated successfully!' : 'Room added successfully!');
-      setTimeout(() => resetForm(), 500); // Slight delay to show success on form? No, better close form and show global toast.
+      alert(editingId ? 'Room updated successfully!' : 'Room added successfully!');
       resetForm();
     } catch (error) {
       console.error("Firestore operation failed:", error);
@@ -135,6 +126,7 @@ const Rooms = () => {
          const roomRef = doc(db, "rooms", roomId);
          await deleteDoc(roomRef);
          setRooms(prev => prev.filter(r => r.id !== roomId));
+         alert("Room deleted successfully");
        } catch (error) {
          console.error("Delete failed:", error);
          setRooms(prev => prev.filter(r => r.id !== roomId)); // Optimistic delete
@@ -457,14 +449,24 @@ const Rooms = () => {
                                    <p className="text-rose-400 font-bold mb-0.5">Check In</p>
                                    <p className="text-rose-800 font-medium">{(() => {
                                       const d = new Date(activeAlloc.checkIn);
-                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                      let hrs = d.getHours();
+                                      const mins = String(d.getMinutes()).padStart(2, '0');
+                                      const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                      hrs = hrs % 12;
+                                      hrs = hrs ? hrs : 12;
+                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                                    })()}</p>
                                 </div>
                                 <div>
                                    <p className="text-rose-400 font-bold mb-0.5">Check Out</p>
                                    <p className="text-rose-800 font-medium">{(() => {
                                       const d = new Date(activeAlloc.checkOut);
-                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                      let hrs = d.getHours();
+                                      const mins = String(d.getMinutes()).padStart(2, '0');
+                                      const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                      hrs = hrs % 12;
+                                      hrs = hrs ? hrs : 12;
+                                      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                                    })()}</p>
                                 </div>
                              </div>
@@ -507,22 +509,7 @@ const Rooms = () => {
          document.body
       )}
 
-      {/* Success Toast */}
-      {successMsg && createPortal(
-        <div className="fixed top-6 right-6 z-[100] animate-slide-in-down">
-          <div className="bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3">
-             <div className="bg-white/20 p-2 rounded-full">
-               <CheckCircle2 size={24} />
-             </div>
-             <div>
-               <h4 className="font-bold text-sm">Success</h4>
-               <p className="text-emerald-100 text-xs">{successMsg}</p>
-             </div>
-             <button onClick={() => setSuccessMsg('')} className="ml-2 text-emerald-200 hover:text-white"><X size={18} /></button>
-          </div>
-        </div>,
-        document.body
-      )}
+
 
       {/* Animation Styles */}
       <style>{`

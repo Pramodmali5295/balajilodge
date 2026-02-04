@@ -15,9 +15,15 @@ const formatBillDate = (dateStr) => {
    const day = String(d.getDate()).padStart(2, '0');
    const month = String(d.getMonth() + 1).padStart(2, '0');
    const year = d.getFullYear();
-   const hrs = String(d.getHours()).padStart(2, '0');
+   
+   let hrs = d.getHours();
    const mins = String(d.getMinutes()).padStart(2, '0');
-   return `${day}-${month}-${year} ${hrs}${mins} HRS`;
+   const ampm = hrs >= 12 ? 'PM' : 'AM';
+   hrs = hrs % 12;
+   hrs = hrs ? hrs : 12; 
+   const hrsStr = String(hrs).padStart(2, '0');
+   
+   return `${day}-${month}-${year} ${hrsStr}:${mins} ${ampm}`;
 };
 
 // --- Number to Words Helper (Indian Format) ---
@@ -341,7 +347,32 @@ const Allocations = () => {
       }
       
       return matchesSearch && matchesTab && matchesDate;
-    }).sort((a, b) => new Date(b.checkIn || 0) - new Date(a.checkIn || 0));
+    }).sort((a, b) => {
+      // History Tab: Sort by Check-Out Time (Recently Checked Out first)
+      if (statusTab === 'History') {
+          const outA = a.actualCheckOut ? new Date(a.actualCheckOut).getTime() : (a.checkOut ? new Date(a.checkOut).getTime() : 0);
+          const outB = b.actualCheckOut ? new Date(b.actualCheckOut).getTime() : (b.checkOut ? new Date(b.checkOut).getTime() : 0);
+          // If check-out times are same or missing, fallback to check-in
+          if (outA !== outB) return outB - outA;
+      }
+
+      // Live Tab (or fallback): Sort by Recently Added (Creation Time or Check-In Time)
+      // If user wants "Recently Added", strictly speaking that is creation time.
+      // But for a hotel list, usually "Check In" time is the proxy for "Recently Added" to the hotel.
+      // We will prefer createdAt if both have it, otherwise checkIn.
+      
+      const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      
+      if (createdA && createdB && createdA !== createdB) {
+          return createdB - createdA;
+      }
+
+      // Fallback to checkIn
+      const dateA = new Date(a.checkIn || 0).getTime();
+      const dateB = new Date(b.checkIn || 0).getTime();
+      return dateB - dateA;
+    });
   }, [allocations, allocationSearch, statusTab, dateRange.start, dateRange.end, getCustomerName, getRoomNumber, getCustomerPhone]);
 
   // --- Handlers ---
@@ -391,8 +422,10 @@ const Allocations = () => {
        if (name === 'checkOut' && value && prev.checkIn) {
            const checkInDate = new Date(prev.checkIn);
            const checkOutDate = new Date(value);
-           const diffTime = checkOutDate - checkInDate;
-           let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+           // Calculate difference based on Calendar Days (Nights)
+           const d1 = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+           const d2 = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+           let diffDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
            if (diffDays < 1) diffDays = 1;
            
            newData.roomSelections = prev.roomSelections.map(s => ({
@@ -689,6 +722,7 @@ const Allocations = () => {
           }
 
           setEditingAllocation(null);
+          alert("Successfully updated booking");
       } else {
           // Create New Consolidated Allocation
           await addDoc(allocationsCollection, {
@@ -711,7 +745,8 @@ const Allocations = () => {
              registrationNumber: formData.registrationNumber || '',
              externalBookingId: formData.externalBookingId || '',
              stayDuration: maxDuration,
-             hsnSacNumber: formData.hsnSacNumber || ''
+             hsnSacNumber: formData.hsnSacNumber || '',
+             createdAt: new Date().toISOString()
           });
 
           // Mark all selected rooms as Booked
@@ -719,6 +754,7 @@ const Allocations = () => {
              const roomRef = doc(db, "rooms", s.roomId);
              await updateDoc(roomRef, { status: "Booked" });
           }
+          alert("Successfully booked room");
       }
       
       if(formData.gstRate) localStorage.setItem('defaultGstRate', formData.gstRate);
@@ -767,9 +803,17 @@ const Allocations = () => {
             const alloc = allocations.find(a => a.id === allocationId);
             if (!alloc) return;
 
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const actualCheckOut = `${year}-${month}-${day}T${hours}:${minutes}`;
+
             await updateDoc(doc(db, "allocations", allocationId), { 
                 status: 'Checked-Out',
-                actualCheckOut: new Date().toISOString()
+                actualCheckOut: actualCheckOut
             });
 
             // Release all rooms
@@ -791,6 +835,7 @@ const Allocations = () => {
      if(window.confirm("Permenently delete this record?")) {
         try {
            await deleteDoc(doc(db, "allocations", id));
+           alert("Successfully deleted booking record");
         } catch (error) {
            console.error("Delete failed", error);
         }
@@ -981,7 +1026,7 @@ const Allocations = () => {
                         <td class="text-center">${s.bookingPlatform || allocation.bookingPlatform}</td>
                         <td class="text-center">${s.roomType || '---'}</td>
                         <td class="text-center">${(parseFloat(s.basePrice) || 0).toFixed(2)}</td>
-                        <td class="text-right">${lineTotal.toFixed(2)}</td>
+                        <td class="text-center">${lineTotal.toFixed(2)}</td>
                       </tr>
                     `;
                   }).join('')}
@@ -1027,22 +1072,22 @@ const Allocations = () => {
                    <tr>
                      <td class="text-center">${i + 1}</td>
                      <td class="text-center">${allocation.hsnSacNumber || '996311'}</td>
-                     <td class="text-right">${s.lineTaxable.toFixed(2)}</td>
+                     <td class="text-center">${s.lineTaxable.toFixed(2)}</td>
                      <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
-                     <td class="text-right">${s.lineCgst.toFixed(2)}</td>
+                     <td class="text-center">${s.lineCgst.toFixed(2)}</td>
                      <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
-                     <td class="text-right">${s.lineSgst.toFixed(2)}</td>
-                     <td class="text-right">${s.lineTotalTax.toFixed(2)}</td>
+                     <td class="text-center">${s.lineSgst.toFixed(2)}</td>
+                     <td class="text-center">${s.lineTotalTax.toFixed(2)}</td>
                    </tr>
                  `).join('')}
                  <tr style="font-weight:bold; background-color: #f9f9f9;">
                    <td colspan="2" class="text-center">Total</td>
-                   <td class="text-right">${taxableValue.toFixed(2)}</td>
+                   <td class="text-center">${taxableValue.toFixed(2)}</td>
                    <td></td>
-                   <td class="text-right">${cgstAmount.toFixed(2)}</td>
+                   <td class="text-center">${cgstAmount.toFixed(2)}</td>
                    <td></td>
-                   <td class="text-right">${sgstAmount.toFixed(2)}</td>
-                   <td class="text-right">${totalTax.toFixed(2)}</td>
+                   <td class="text-center">${sgstAmount.toFixed(2)}</td>
+                   <td class="text-center">${totalTax.toFixed(2)}</td>
                  </tr>
                </tbody>
              </table>
@@ -1275,8 +1320,7 @@ const Allocations = () => {
                     <th className="px-4 py-3 text-center whitespace-nowrap">Duration</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Duty Staff</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Pending Amount</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
+                     <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
                  </tr>
               </thead> 
               <tbody className="divide-y divide-gray-100">
@@ -1342,13 +1386,23 @@ const Allocations = () => {
                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
                               In: {(() => {
                                  const d = new Date(alloc.checkIn);
-                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                 let hrs = d.getHours();
+                                 const mins = String(d.getMinutes()).padStart(2, '0');
+                                 const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                 hrs = hrs % 12;
+                                 hrs = hrs ? hrs : 12;
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                               })()}
                            </div>
                            <div className="flex items-center gap-2 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 w-fit">
                               Out: {(() => {
                                  const d = alloc.actualCheckOut ? new Date(alloc.actualCheckOut) : new Date(alloc.checkOut);
-                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                 let hrs = d.getHours();
+                                 const mins = String(d.getMinutes()).padStart(2, '0');
+                                 const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                 hrs = hrs % 12;
+                                 hrs = hrs ? hrs : 12;
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                               })()}
                            </div>
                         </div>
@@ -1371,18 +1425,6 @@ const Allocations = () => {
                               return Math.max(0, Math.round(pending)).toLocaleString('en-IN');
                            })()}
                         </span>
-                     </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                        {alloc.status === 'Checked-Out' ? (
-                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-500 border border-gray-200">
-                              Checked Out
-                           </span>
-                        ) : (
-                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 border border-emerald-100">
-                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                             Active
-                           </span>
-                        )}
                      </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2 transition-opacity">
@@ -1442,21 +1484,39 @@ const Allocations = () => {
                            </button>
 
                            {statusTab === 'Live' ? (
-                              <button 
-                                 onClick={() => handleCheckOut(alloc.id)}
-                                className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
-                                title="Check Out Guest"
-                              >
-                                 <LogOut size={16} />
-                              </button>
+                              <>
+                                <button 
+                                   onClick={() => handleCheckOut(alloc.id)}
+                                  className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
+                                  title="Check Out Guest"
+                                >
+                                   <LogOut size={16} />
+                                </button>
+                                 <button 
+                                    onClick={() => handlePrintBill(alloc, 'print')}
+                                    className="p-1.5 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm"
+                                    title="Print Invoice"
+                                  >
+                                     <Printer size={16} />
+                                  </button>
+                              </>
                            ) : (
-                              <button 
-                                onClick={() => handleDeleteAllocation(alloc.id)}
-                                className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
-                                title="Delete Record"
-                              >
-                                 <Trash2 size={16} />
-                              </button>
+                              <>
+                                <button 
+                                  onClick={() => handlePrintBill(alloc, 'print')}
+                                  className="p-1.5 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm"
+                                  title="Print Invoice"
+                                >
+                                   <Printer size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteAllocation(alloc.id)}
+                                  className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
+                                  title="Delete Record"
+                                >
+                                   <Trash2 size={16} />
+                                </button>
+                              </>
                            )}
                         </div>
                      </td>
@@ -1481,7 +1541,7 @@ const Allocations = () => {
       {(() => {
         if (!showCheckInModal && !isAddBookingPage) return null;
         const content = (
-            <div className={`bg-white w-full h-full flex flex-col overflow-hidden ${isAddBookingPage ? '' : 'animate-slide-up relative my-0'}`}>
+            <div className={`bg-white w-full h-full flex flex-col overflow-hidden ${isAddBookingPage ? '' : 'animate-scale-in relative my-0'}`}>
                {/* Header - Only show in modal mode, not on add booking page */}
                {!isAddBookingPage && (
                   <div className="px-6 py-4 flex justify-between items-center shrink-0 bg-indigo-600 text-white">
@@ -1489,8 +1549,8 @@ const Allocations = () => {
                        <h2 className="text-xl font-bold tracking-tight text-white">{editingAllocation ? 'Update Booking' : 'New Booking'}</h2>
                        <p className="text-indigo-100 text-xs opacity-80 mt-1">Guest check-in & room allocation</p>
                      </div>
-                     <button onClick={resetForm} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-bold transition-all text-white">
-                        Close
+                     <button onClick={resetForm} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white">
+                        <X size={20} />
                      </button>
                   </div>
                )}
@@ -1817,7 +1877,14 @@ const Allocations = () => {
                                          <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Done By (Staff) <span className="text-red-500">*</span></label>
                                          <select name="employeeId" value={formData.employeeId} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" required>
                                             <option value="">Select Staff</option>
-                                            {employees.filter(e => e.status !== 'Inactive' || e.id === formData.employeeId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                            {employees
+                                              .filter(e => e.status !== 'Inactive' || e.id === formData.employeeId)
+                                              .sort((a, b) => {
+                                                  const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                                                  const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                                                  return dateB - dateA;
+                                              })
+                                              .map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                                          </select>
                                       </div>
                                       <div>
@@ -1933,12 +2000,19 @@ const Allocations = () => {
 
                           </div>
 
-                          {/* Form Footer - Submit Button */}
-                          <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
+                          {/* Form Footer - Submit Buttons */}
+                          <div className="bg-gray-50 px-8 py-6 border-t border-gray-200 flex gap-4">
+                             <button
+                                type="button"
+                                onClick={resetForm}
+                                className="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-4 px-6 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-all text-base"
+                             >
+                                Cancel
+                             </button>
                              <button 
                                 type="submit" 
                                 disabled={isSubmitting} 
-                                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 flex justify-center items-center gap-3 text-base"
+                                className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 flex justify-center items-center gap-3 text-base"
                              >
                                 {isSubmitting ? (
                                    <>
@@ -1948,7 +2022,7 @@ const Allocations = () => {
                                 ) : editingAllocation ? (
                                    <>
                                       <CheckCircle size={20} />
-                                      Update Booking
+                                      Update
                                    </>
                                 ) : (
                                    <>
@@ -1966,7 +2040,15 @@ const Allocations = () => {
          if (isAddBookingPage) {
             return <div className="flex-1 h-full rounded-xl border border-gray-200 shadow-sm overflow-hidden">{content}</div>;
          }
-         return createPortal(<div className="fixed inset-0 z-[60] bg-white animate-fade-in">{content}</div>, document.body);
+         return createPortal(
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+               <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={resetForm} />
+               <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in">
+                  {content}
+               </div>
+            </div>, 
+            document.body
+         );
       })()}
 
       {/* View Booking Details Drawer */}
@@ -2067,14 +2149,24 @@ const Allocations = () => {
                               <p className="text-[10px] text-emerald-600 font-bold uppercase">Check-In</p>
                               <p className="text-xs font-bold text-gray-800">{(() => {
                                  const d = new Date(viewingAllocation.checkIn);
-                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                 let hrs = d.getHours();
+                                 const mins = String(d.getMinutes()).padStart(2, '0');
+                                 const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                 hrs = hrs % 12;
+                                 hrs = hrs ? hrs : 12;
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                               })()}</p>
                            </div>
                            <div>
                               <p className="text-[10px] text-rose-600 font-bold uppercase">Check-Out</p>
                               <p className="text-xs font-bold text-gray-800">{(() => {
                                  const d = viewingAllocation.actualCheckOut ? new Date(viewingAllocation.actualCheckOut) : new Date(viewingAllocation.checkOut);
-                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                 let hrs = d.getHours();
+                                 const mins = String(d.getMinutes()).padStart(2, '0');
+                                 const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                 hrs = hrs % 12;
+                                 hrs = hrs ? hrs : 12;
+                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                               })()}</p>
                            </div>
                            <div>
