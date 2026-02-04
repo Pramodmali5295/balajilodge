@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore'; 
-import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown } from 'lucide-react';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, getDoc, query, where, orderBy, limit } from 'firebase/firestore'; 
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown, Calendar } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 import html2pdf from 'html2pdf.js';
 
@@ -823,8 +823,17 @@ const Allocations = () => {
     if(window.confirm("Confirm guest check-out? This will release the room(s) for future use.")) {
         try {
             setIsSubmitting(true);
-            const alloc = allocations.find(a => a.id === allocationId);
-            if (!alloc) return;
+            
+            // Fetch fresh data to ensure we have all room info
+            const allocRef = doc(db, "allocations", allocationId);
+            const allocSnap = await getDoc(allocRef);
+            
+            if (!allocSnap.exists()) {
+                 alert("Booking not found!");
+                 return;
+            }
+            
+            const allocData = allocSnap.data();
 
             const now = new Date();
             const year = now.getFullYear();
@@ -834,24 +843,26 @@ const Allocations = () => {
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const actualCheckOut = `${year}-${month}-${day}T${hours}:${minutes}`;
 
-            await updateDoc(doc(db, "allocations", allocationId), { 
+            await updateDoc(allocRef, { 
                 status: 'Checked-Out',
                 actualCheckOut: actualCheckOut
             });
 
-            // Release all rooms
+            // Release all rooms using fresh data
             let roomsToRelease = [];
-            if (alloc.roomSelections && alloc.roomSelections.length > 0) {
-                 roomsToRelease = alloc.roomSelections;
-            } else if (alloc.roomId) {
-                 roomsToRelease = [{ roomId: alloc.roomId }];
+            if (allocData.roomSelections && allocData.roomSelections.length > 0) {
+                 roomsToRelease = allocData.roomSelections;
+            } else if (allocData.roomId) {
+                 roomsToRelease = [{ roomId: allocData.roomId }];
             }
 
-            for (const s of roomsToRelease) {
-               if (s.roomId) {
-                  await updateDoc(doc(db, "rooms", s.roomId), { status: 'Available' });
-               }
-            }
+            // Update rooms in parallel for speed and reliability, ensuring IDs are strings
+            await Promise.all(roomsToRelease.map(async (s) => {
+                if (s.roomId) {
+                    await updateDoc(doc(db, "rooms", String(s.roomId)), { status: 'Available' });
+                }
+            }));
+
         } catch (error) {
             console.error("Check-out failed", error);
             alert("Failed to checkout. Please try again.");
