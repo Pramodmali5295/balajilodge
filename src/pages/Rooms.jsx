@@ -110,6 +110,10 @@ const Rooms = () => {
 
   const handleEditRoom = (e, room) => {
     e.stopPropagation();
+    if (room.status === 'Booked') {
+        alert("Cannot edit a booked room. Please checkout the guest first.");
+        return;
+    }
     setFormData({
       roomNumber: room.roomNumber,
       type: room.type,
@@ -484,11 +488,17 @@ const Rooms = () => {
                 <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3">
                     <button 
                          onClick={(e) => { 
+                             if (selectedRoom.status === 'Booked') return;
                              const roomToEdit = selectedRoom;
                              setSelectedRoom(null); 
                              handleEditRoom(e, roomToEdit); 
                          }}
-                         className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all text-sm flex justify-center items-center gap-2"
+                         disabled={selectedRoom.status === 'Booked'}
+                         className={`flex-1 py-3 font-bold rounded-xl shadow-sm transition-all text-sm flex justify-center items-center gap-2 ${
+                            selectedRoom.status === 'Booked' 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                         }`}
                       >
                          <Edit3 size={16} /> Edit
                     </button>
