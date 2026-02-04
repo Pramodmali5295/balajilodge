@@ -99,6 +99,11 @@ const Allocations = () => {
   const [allocationSearch, setAllocationSearch] = useState('');
   const [statusTab, setStatusTab] = useState('Live');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [dateFilterFocus, setDateFilterFocus] = useState({ start: false, end: false });
+  const formatDateForFilter = (dateStr) => {
+     if (!dateStr) return '';
+     return dateStr.split('-').reverse().join('/');
+  };
   const location = useLocation();
   const navigate = useNavigate();
   const isAddBookingPage = location.pathname.includes('add-booking');
@@ -126,7 +131,7 @@ const Allocations = () => {
         customerType: 'New', employeeId: '',
         advanceAmount: 0, paymentType: 'Cash', narration: '', guestGstin: '', companyName: '',
         registrationNumber: '', externalBookingId: '', existingCustomerId: null,
-        gstRate: localStorage.getItem('defaultGstRate') || '12', hsnSacNumber: '',
+        gstRate: localStorage.getItem('defaultGstRate') || '12', hsnSacNumber: '996311',
         roomSelections: [
           {
             roomId: '',
@@ -209,6 +214,11 @@ const Allocations = () => {
 
   const updateRoomSelection = (index, field, value) => {
     setFormData(prev => {
+      // Prevent negative Price
+      if (field === 'basePrice' && value < 0) return prev;
+      // Prevent invalid Guest count or Duration (must be >= 1)
+      if ((field === 'numberOfGuests' || field === 'stayDuration') && value !== '' && value < 1) return prev;
+
       const newSelections = [...prev.roomSelections];
       newSelections[index] = { ...newSelections[index], [field]: value };
       
@@ -323,9 +333,20 @@ const Allocations = () => {
       const matchesSearch = custName.includes(search) || allRoomNums.includes(search) || regNo.includes(search) || bookId.includes(search) || phone.includes(search);
       // Live tab: Show Active bookings (or bookings without status for backward compatibility)
       // History tab: Show ONLY Checked-Out bookings
+      // Calculate Pending for Filter
+      const gstRate = Number(alloc.gstRate || 0);
+      const selections = alloc.roomSelections || [{ 
+          basePrice: alloc.basePrice, 
+          stayDuration: alloc.stayDuration 
+      }];
+      const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
+      const total = totalBase * (1 + gstRate/100);
+      const paid = Number(alloc.advanceAmount || 0);
+      const pending = Math.max(0, Math.round(total - paid));
+
       const matchesTab = statusTab === 'Live' 
         ? (alloc.status === 'Active' || alloc.status === undefined || alloc.status === null || alloc.status === '') 
-        : (alloc.status === 'Checked-Out');
+        : (alloc.status === 'Checked-Out' && pending > 0);
       
 
       
@@ -390,6 +411,8 @@ const Allocations = () => {
         value = value.toUpperCase().slice(0, 15);
     } else if (name === 'companyName') {
         value = value.toUpperCase(); 
+    } else if (name === 'advanceAmount') {
+        if (parseFloat(value) < 0) value = 0;
     } else if (name === 'guestIdNumber') {
         if (formData.guestIdProofType === 'Aadhar Card') {
              value = value.replace(/\D/g, '').slice(0, 12);
@@ -722,7 +745,7 @@ const Allocations = () => {
           }
 
           setEditingAllocation(null);
-          alert("Successfully updated booking");
+          alert("Customer details updated successfully");
       } else {
           // Create New Consolidated Allocation
           await addDoc(allocationsCollection, {
@@ -1240,45 +1263,43 @@ const Allocations = () => {
             <div className="flex items-center gap-3 w-full lg:w-auto">
                  {/* DATE FILTER for History */}
                  {statusTab === 'History' && (
-                    <div className="flex items-center gap-2">
-                       {/* From Date */}
-                       <div className="relative group bg-white hover:bg-gray-50 rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 transition-all shadow-sm">
-                           <Calendar size={14} className="text-indigo-500" />
-                           <span className={`text-xs font-bold ${dateRange.start ? 'text-gray-700' : 'text-gray-400'}`}>
-                              {dateRange.start ? dateRange.start.split('-').reverse().join('/') : 'DD/MM/YYYY'}
-                           </span>
-                           <input 
-                              type="date" 
-                              value={dateRange.start} 
-                              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                              title="Select Start Date"
-                           />
-                       </div>
+                     <div className="flex items-center gap-3 w-full lg:w-auto bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+                         <div className="flex items-center gap-2 px-3 py-1">
+                            <span className="text-xs font-bold text-gray-500 uppercase">From</span>
+                             <input 
+                                type={dateFilterFocus.start ? 'date' : 'text'}
+                                value={dateFilterFocus.start ? dateRange.start : formatDateForFilter(dateRange.start)}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                onFocus={() => setDateFilterFocus(prev => ({ ...prev, start: true }))}
+                                onBlur={() => setDateFilterFocus(prev => ({ ...prev, start: false }))}
+                                className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer"
+                                title="Select Start Date"
+                                placeholder="DD/MM/YYYY"
+                             />
+                         </div>
 
-                       <span className="text-gray-400 font-bold">-</span>
+                         <div className="w-[1px] h-5 bg-gray-300"></div>
 
-                       {/* To Date */}
-                       <div className="relative group bg-white hover:bg-gray-50 rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 transition-all shadow-sm">
-                           <Calendar size={14} className="text-indigo-500" />
-                           <span className={`text-xs font-bold ${dateRange.end ? 'text-gray-700' : 'text-gray-400'}`}>
-                              {dateRange.end ? dateRange.end.split('-').reverse().join('/') : 'DD/MM/YYYY'}
-                           </span>
-                           <input 
-                              type="date" 
-                              value={dateRange.end} 
-                              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                              title="Select End Date"
-                           />
-                       </div>
+                         <div className="flex items-center gap-2 px-3 py-1">
+                            <span className="text-xs font-bold text-gray-500 uppercase">To</span>
+                             <input 
+                                type={dateFilterFocus.end ? 'date' : 'text'}
+                                value={dateFilterFocus.end ? dateRange.end : formatDateForFilter(dateRange.end)}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                onFocus={() => setDateFilterFocus(prev => ({ ...prev, end: true }))}
+                                onBlur={() => setDateFilterFocus(prev => ({ ...prev, end: false }))}
+                                className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer"
+                                title="Select End Date"
+                                placeholder="DD/MM/YYYY"
+                             />
+                         </div>
 
-                       {(dateRange.start || dateRange.end) && (
-                          <button onClick={() => setDateRange({start: '', end: ''})} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors" title="Clear Dates">
-                             <X size={14}/>
-                          </button>
-                       )}
-                    </div>
+                         {(dateRange.start || dateRange.end) && (
+                            <button onClick={() => setDateRange({start: '', end: ''})} className="p-1 hover:bg-gray-200 rounded-md text-gray-500 transition-colors" title="Clear Dates">
+                               <X size={14}/>
+                            </button>
+                         )}
+                      </div>
                  )}
                  {/* Status Filters - Segmented Control Style */}
                  {(!location.pathname.includes('add-customer') && !location.pathname.includes('completed')) && (
@@ -1546,7 +1567,7 @@ const Allocations = () => {
                {!isAddBookingPage && (
                   <div className="px-6 py-4 flex justify-between items-center shrink-0 bg-indigo-600 text-white">
                      <div>
-                       <h2 className="text-xl font-bold tracking-tight text-white">{editingAllocation ? 'Update Booking' : 'New Booking'}</h2>
+                       <h2 className="text-xl font-bold tracking-tight text-white">{editingAllocation ? 'Edit Customer Details' : 'New Booking'}</h2>
                        <p className="text-indigo-100 text-xs opacity-80 mt-1">Guest check-in & room allocation</p>
                      </div>
                      <button onClick={resetForm} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white">
@@ -1562,7 +1583,7 @@ const Allocations = () => {
                            {isAddBookingPage && (
                               <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-6 flex justify-between items-start">
                                   <div>
-                                      <h2 className="text-2xl font-bold text-white">{editingAllocation ? 'Update Booking' : 'Booking Information'}</h2>
+                                      <h2 className="text-2xl font-bold text-white">{editingAllocation ? 'Edit Customer Details' : 'Booking Information'}</h2>
                                       <p className="text-indigo-100 text-sm mt-1">Please fill in all required fields.</p>
                                   </div>
                                   <button 
@@ -1794,6 +1815,7 @@ const Allocations = () => {
                                                           const val = e.target.value;
                                                           updateRoomSelection(idx, 'numberOfGuests', val === '' ? '' : parseInt(val));
                                                        }}
+                                                       onWheel={(e) => e.target.blur()}
                                                        onBlur={(e) => {
                                                           const val = parseInt(e.target.value);
                                                           if (!val || val < 1) updateRoomSelection(idx, 'numberOfGuests', 1);
@@ -1813,6 +1835,7 @@ const Allocations = () => {
                                                           const val = e.target.value;
                                                           updateRoomSelection(idx, 'stayDuration', val === '' ? '' : parseInt(val));
                                                        }}
+                                                       onWheel={(e) => e.target.blur()}
                                                        onBlur={(e) => {
                                                           const val = parseInt(e.target.value);
                                                           if (!val || val < 1) updateRoomSelection(idx, 'stayDuration', 1);
@@ -1830,11 +1853,12 @@ const Allocations = () => {
                                                        min="0"
                                                        value={selection.basePrice} 
                                                        onChange={(e) => updateRoomSelection(idx, 'basePrice', e.target.value)}
+                                                       onWheel={(e) => e.target.blur()}
                                                        className="w-full pl-6 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 no-spinners transition-all"
                                                        placeholder="Price"
                                                     />
                                                  </div>
-
+                                                 
                                                  {/* Line Total */}
                                                  <div className="col-span-1 text-right">
                                                     <p className="text-sm font-black text-indigo-600 truncate">
@@ -1918,7 +1942,7 @@ const Allocations = () => {
                                           </div>
                                           <div>
                                               <label className="block text-sm font-semibold text-gray-700 mb-2">HSN/SAC Number</label>
-                                              <input type="text" name="hsnSacNumber" value={formData.hsnSacNumber} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="HSN/SAC Code (Optional)" />
+                                              <input type="text" name="hsnSacNumber" value={formData.hsnSacNumber} readOnly className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed outline-none text-base transition-all" />
                                           </div>
                                       </div>
 
@@ -1945,6 +1969,7 @@ const Allocations = () => {
                                                  name="advanceAmount" 
                                                  value={formData.advanceAmount} 
                                                  onChange={handleChange} 
+                                                 onWheel={(e) => e.target.blur()}
                                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-base font-bold" 
                                                  placeholder="0.00" 
                                               />
@@ -2061,7 +2086,7 @@ const Allocations = () => {
                <div className="px-8 py-6 bg-gradient-to-r from-indigo-700 to-indigo-600 text-white flex justify-between items-center shrink-0">
                   <div>
                      <div className="flex items-center gap-3 mb-1">
-                        <h2 className="text-2xl font-black tracking-tight">Booking Details</h2>
+                        <h2 className="text-2xl font-black tracking-tight">Customer Details</h2>
                         <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${viewingAllocation.status === 'Active' ? 'bg-emerald-400 text-emerald-900' : 'bg-gray-200 text-gray-800'}`}>
                            {viewingAllocation.status}
                         </span>

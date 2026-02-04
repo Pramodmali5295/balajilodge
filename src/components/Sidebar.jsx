@@ -48,7 +48,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 <img src={logoImage} alt="Logo" className="w-full h-full object-cover" />
               </div>
               <div>
-                  <h1 className="text-lg font-black tracking-tight text-white leading-none">Balaji Lodge</h1>
+                  <h1 className="text-lg font-black tracking-tight text-white leading-none">BALAJI LODGE</h1>
               </div>
           </div>
         </div>

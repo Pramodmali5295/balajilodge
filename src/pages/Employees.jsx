@@ -451,7 +451,7 @@ const Employees = () => {
                 <div className="px-8 py-6 bg-gradient-to-r from-blue-700 to-blue-600 text-white flex justify-between items-center shrink-0">
                    <div>
                       <div className="flex items-center gap-3 mb-1">
-                         <h2 className="text-2xl font-black tracking-tight">Employee Details</h2>
+                         <h2 className="text-2xl font-black tracking-tight">Staff Details</h2>
                          <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${selectedEmp.status === 'Active' ? 'bg-emerald-400 text-emerald-900' : 'bg-rose-200 text-rose-900'}`}>
                             {selectedEmp.status}
                          </span>

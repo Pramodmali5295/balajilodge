@@ -16,6 +16,11 @@ const Customers = () => {
     name: '', phone: '', idProof: '', address: '', customerType: 'Regular'
   });
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [dateFilterFocus, setDateFilterFocus] = useState({ start: false, end: false });
+  const formatDateForFilter = (dateStr) => {
+     if (!dateStr) return '';
+     return dateStr.split('-').reverse().join('/');
+  };
 
   // Stats Calculation
   const stats = useMemo(() => {
@@ -41,6 +46,26 @@ const Customers = () => {
       c.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       c.phone?.includes(searchTerm)
     );
+
+    // Filter: Only Checked-Out and Fully Paid
+    list = list.filter(c => {
+       const cAllocations = allocations.filter(a => String(a.customerId) === String(c.id));
+       // If active stay exists, exclude
+       const hasActive = cAllocations.some(a => a.status === 'Active' || !a.status);
+       if (hasActive) return false;
+       
+       // If pending dues exist, exclude
+       const totalPending = cAllocations.reduce((sum, alloc) => {
+            const gst = Number(alloc.gstRate || 0);
+            const sels = alloc.roomSelections || [{basePrice: alloc.basePrice, stayDuration: alloc.stayDuration}];
+            const totalBase = sels.reduce((s, sel) => s + ((Number(sel.basePrice)||0) * (Number(sel.stayDuration)||1)), 0);
+            const val = totalBase * (1 + gst/100);
+            const paid = Number(alloc.advanceAmount || 0);
+            return sum + (val - paid);
+       }, 0);
+       
+       return Math.round(totalPending) <= 0;
+    });
 
    // Apply Date Filter
     if (dateRange.start || dateRange.end) {
@@ -130,6 +155,7 @@ const Customers = () => {
       'Range SGST (6%)', 
       'Range Total (With GST)', 
       'Range Advance',
+      'Range Pending Amount',
       'Payment Methods',
       'Register Nos', 
       'Booking IDs', 
@@ -224,6 +250,8 @@ const Customers = () => {
           advanceAmount += Number(stay.advanceAmount) || 0;
        });
        
+       const pendingAmount = totalAmount - advanceAmount;
+
        // Get unique payment methods (In Range)
        const paymentMethods = [...new Set(rangeStays
           .map(stay => stay.paymentType)
@@ -256,6 +284,7 @@ const Customers = () => {
           totalSGST.toFixed(2),
           totalAmount.toFixed(2),
           advanceAmount.toFixed(2),
+          pendingAmount.toFixed(2),
           escapeCsv(paymentMethods),
           escapeCsv(regNos),
           escapeCsv(bookingIds),
@@ -344,20 +373,26 @@ const Customers = () => {
                <div className="flex items-center gap-2 px-3 py-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">From</span>
                   <input 
-                    type="date" 
-                    value={dateRange.start} 
-                    onChange={(e) => setDateRange({...dateRange, start: e.target.value})} 
-                    className="bg-transparent text-sm font-medium text-gray-700 outline-none" 
+                    type={dateFilterFocus.start ? 'date' : 'text'}
+                    value={dateFilterFocus.start ? dateRange.start : formatDateForFilter(dateRange.start)}
+                    onChange={(e) => setDateRange(prev => ({...prev, start: e.target.value}))} 
+                    onFocus={() => setDateFilterFocus(prev => ({ ...prev, start: true }))}
+                    onBlur={() => setDateFilterFocus(prev => ({ ...prev, start: false }))}
+                    className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer" 
+                    placeholder="DD/MM/YYYY"
                   />
                </div>
                <div className="w-[1px] h-5 bg-gray-300"></div>
                <div className="flex items-center gap-2 px-3 py-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">To</span>
                   <input 
-                    type="date" 
-                    value={dateRange.end} 
-                    onChange={(e) => setDateRange({...dateRange, end: e.target.value})} 
-                    className="bg-transparent text-sm font-medium text-gray-700 outline-none" 
+                    type={dateFilterFocus.end ? 'date' : 'text'}
+                    value={dateFilterFocus.end ? dateRange.end : formatDateForFilter(dateRange.end)}
+                    onChange={(e) => setDateRange(prev => ({...prev, end: e.target.value}))} 
+                    onFocus={() => setDateFilterFocus(prev => ({ ...prev, end: true }))}
+                    onBlur={() => setDateFilterFocus(prev => ({ ...prev, end: false }))}
+                    className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer" 
+                    placeholder="DD/MM/YYYY"
                   />
                </div>
                {(dateRange.start || dateRange.end) && (
@@ -417,9 +452,7 @@ const Customers = () => {
                                <Eye size={16} />
                             </button>
 
-                            <button onClick={() => handleEdit(customer)} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="Edit Record">
-                               <Edit3 size={16} />
-                            </button>
+
 
                             <button onClick={() => handleDelete(customer.id)} className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
                                <Trash2 size={16} />
