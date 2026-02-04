@@ -820,7 +820,7 @@ const Allocations = () => {
   };
 
   const handleCheckOut = async (allocationId) => {
-    if(window.confirm("Confirm guest check-out?")) {
+    if(window.confirm("Confirm guest check-out? This will release the room(s) for future use.")) {
         try {
             setIsSubmitting(true);
             const alloc = allocations.find(a => a.id === allocationId);
@@ -840,7 +840,13 @@ const Allocations = () => {
             });
 
             // Release all rooms
-            const roomsToRelease = alloc.roomSelections || [{ roomId: alloc.roomId }];
+            let roomsToRelease = [];
+            if (alloc.roomSelections && alloc.roomSelections.length > 0) {
+                 roomsToRelease = alloc.roomSelections;
+            } else if (alloc.roomId) {
+                 roomsToRelease = [{ roomId: alloc.roomId }];
+            }
+
             for (const s of roomsToRelease) {
                if (s.roomId) {
                   await updateDoc(doc(db, "rooms", s.roomId), { status: 'Available' });
@@ -848,6 +854,7 @@ const Allocations = () => {
             }
         } catch (error) {
             console.error("Check-out failed", error);
+            alert("Failed to checkout. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
