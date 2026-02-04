@@ -21,7 +21,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "cross-env NODE_OPTIONS=--no-deprecation react-scripts build",
+    "build": "cross-env GENERATE_SOURCEMAP=false NODE_OPTIONS=\"--no-deprecation --max_old_space_size=4096\" react-scripts build",
+    "postinstall": "node scripts/fix-html2pdf-sourcemap.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
