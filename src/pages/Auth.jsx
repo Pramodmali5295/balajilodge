@@ -5,13 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import { LogIn, UserPlus, User, Lock, Phone, Building2, Eye, EyeOff } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 
+const ADMIN_ACCESS_CODE = 'BALAJILODGE'; // Simple security key
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     mobile: '',
-    lodgeName: ''
+    lodgeName: '',
+    secretKey: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,8 +33,13 @@ const Auth = () => {
     setError('');
     setSuccessMessage('');
 
-    if (!isLogin && formData.password.length < 6) {
-        return setError('Password must be at least 6 characters long');
+    if (!isLogin) {
+        if (formData.password.length < 6) {
+           return setError('Password must be at least 6 characters long');
+        }
+        if (formData.secretKey !== ADMIN_ACCESS_CODE) {
+           return setError('Invalid Access Code. You are not authorized to create an account.');
+        }
     }
 
     try {
@@ -43,7 +51,7 @@ const Auth = () => {
         await signup(formData.username, formData.password, formData.mobile, formData.lodgeName);
         // After successful signup, switch to login mode
         setIsLogin(true);
-        setFormData({ username: formData.username, password: '', mobile: '', lodgeName: '' });
+        setFormData({ username: formData.username, password: '', mobile: '', lodgeName: '', secretKey: '' });
         setSuccessMessage('Account created successfully! Please sign in with your credentials.');
       }
     } catch (err) {
@@ -63,7 +71,7 @@ const Auth = () => {
       setIsLogin(!isLogin);
       setError('');
       setSuccessMessage('');
-      setFormData({ username: '', password: '', mobile: '', lodgeName: '' });
+      setFormData({ username: '', password: '', mobile: '', lodgeName: '', secretKey: '' });
   };
 
   return (
@@ -156,6 +164,24 @@ const Auth = () => {
               </button>
             </div>
           </div>
+          
+           {!isLogin && (
+                <div className="animate-fade-in">
+                    <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-300" size={20} />
+                    <input
+                        type="password"
+                        name="secretKey"
+                        value={formData.secretKey}
+                        onChange={handleChange}
+                        placeholder="Admin Access Code"
+                        className="w-full bg-rose-950/30 text-white placeholder-rose-300/50 pl-12 pr-4 py-3.5 rounded-xl border border-rose-500/50 focus:border-rose-400 focus:ring-1 focus:ring-rose-400 outline-none transition-all font-medium"
+                        required={!isLogin}
+                    />
+                    </div>
+                     <p className="text-xs text-rose-300 mt-2 px-1">* Required to prevent unauthorized signups</p>
+                </div>
+            )}
 
           <button
             type="submit"

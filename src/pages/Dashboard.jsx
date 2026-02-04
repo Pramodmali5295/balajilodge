@@ -181,8 +181,8 @@ const Dashboard = () => {
           title="Total Rooms" 
           value={stats.total} 
           icon={<BedDouble />} 
-          gradient="bg-gradient-to-br from-indigo-500 to-indigo-600"
-          border="border-indigo-400"
+          gradient="bg-gradient-to-br from-gray-700 to-gray-800"
+          border="border-gray-500"
           link="/rooms"
         />
         <StatCard 
