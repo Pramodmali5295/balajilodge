@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore'; 
-import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown, Calendar } from 'lucide-react';
+import { CalendarPlus, User, BedDouble, CheckCircle, Clock, Phone, FileText, Search, Users, Trash2, X, Plus, Eye, Edit3, LogOut, CreditCard, Printer, UserCheck, Download, ChevronDown } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 import html2pdf from 'html2pdf.js';
 

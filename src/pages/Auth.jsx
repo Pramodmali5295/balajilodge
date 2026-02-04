@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, UserPlus, User, Lock, Phone, Building2, Eye, EyeOff } from 'lucide-react';
+import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 
 
