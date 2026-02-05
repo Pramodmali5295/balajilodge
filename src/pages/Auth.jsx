@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
 import logoImage from '../assets/logo.jpg';
 
-
-
 const Auth = () => {
   const [formData, setFormData] = useState({
     username: '',
