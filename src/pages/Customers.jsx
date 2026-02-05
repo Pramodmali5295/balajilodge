@@ -273,7 +273,7 @@ const Customers = () => {
           escapeCsv(c.phone),
           escapeCsv(c.address),
           escapeCsv(idType),  
-          escapeCsv(idNumber),
+          escapeCsv(idNumber ? `\t${idNumber}` : ''),
           escapeCsv(c.customerType || c.guestType || 'Regular'),
           registered,
           lastVisit,
@@ -452,9 +452,7 @@ const Customers = () => {
                                <Eye size={16} />
                             </button>
 
-                            <button onClick={() => handleEdit(customer)} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="Edit Record">
-                               <Edit3 size={16} />
-                            </button>
+
 
                             <button onClick={() => handleDelete(customer.id)} className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
                                <Trash2 size={16} />

@@ -32,9 +32,9 @@ const Dashboard = () => {
   }, [rooms, allocations, employees, customers]);
 
   const recentStays = useMemo(() => {
-    return [...allocations]
-      .sort((a, b) => new Date(b.checkIn) - new Date(a.checkIn))
-      .slice(0, 10);
+    return allocations
+      .filter(a => a.status === 'Active' || !a.status)
+      .sort((a, b) => new Date(b.checkIn) - new Date(a.checkIn));
   }, [allocations]);
 
   const getCustomerName = (id) => customers.find(c => String(c.id) === String(id))?.name || 'Unknown Guest';
@@ -330,7 +330,7 @@ const Dashboard = () => {
                 <div className="p-4 border-b border-indigo-100 flex justify-between items-center bg-indigo-50/50 flex-shrink-0">
                    <div className="flex items-center gap-2">
                       <h3 className="text-sm font-black text-indigo-900 uppercase tracking-widest">Customer Activity</h3>
-                      <div className="w-5 h-5 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[10px] font-black shadow-sm shadow-indigo-100">{stats.totalGuests}</div>
+                      <div className="w-5 h-5 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[10px] font-black shadow-sm shadow-indigo-100">{recentStays.length}</div>
                    </div>
                    <Link to="/customers" className="text-[9px] font-black text-white hover:bg-indigo-700 uppercase tracking-widest px-2.5 py-1.5 bg-indigo-600 rounded-lg shadow-md shadow-indigo-100 transition-all flex items-center gap-1">
                       Ledger <TrendingUp size={10} />

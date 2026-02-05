@@ -149,6 +149,10 @@ const Allocations = () => {
   const [viewingAllocation, setViewingAllocation] = useState(null);
   const [editingAllocation, setEditingAllocation] = useState(null);
   
+  // Post-Update Modal State
+  const [showPostUpdateModal, setShowPostUpdateModal] = useState(false);
+  const [postUpdateData, setPostUpdateData] = useState(null);
+  
   // Booking Sources State
   // Booking Sources State - Synced with DB
   const [bookingSources, setBookingSources] = useState([]);
@@ -709,12 +713,15 @@ const Allocations = () => {
 
       if (editingAllocation) {
           // Update Existing Group Allocation
-          // Release old rooms associated with this allocation first
-          const oldRooms = editingAllocation.roomSelections || [{ roomId: editingAllocation.roomId }];
-          for (const s of oldRooms) {
-             if (s.roomId) {
-                await updateDoc(doc(db, "rooms", s.roomId), { status: "Available" });
-             }
+          
+          if (editingAllocation.status !== 'Checked-Out') {
+              // Release old rooms associated with this allocation first
+              const oldRooms = editingAllocation.roomSelections || [{ roomId: editingAllocation.roomId }];
+              for (const s of oldRooms) {
+                 if (s.roomId) {
+                    await updateDoc(doc(db, "rooms", s.roomId), { status: "Available" });
+                 }
+              }
           }
           
           await updateDoc(doc(db, "allocations", editingAllocation.id), {
@@ -739,13 +746,55 @@ const Allocations = () => {
              price: finalPrice
           });
           
-          // Re-mark new rooms as booked
-          for (const s of selectionsForDb) {
-             await updateDoc(doc(db, "rooms", s.roomId), { status: "Booked" });
+          if (editingAllocation.status !== 'Checked-Out') {
+              // Re-mark new rooms as booked ONLY if not checked out
+              for (const s of selectionsForDb) {
+                 await updateDoc(doc(db, "rooms", s.roomId), { status: "Booked" });
+              }
           }
 
+          // Construct updated allocation object for printing
+          const updatedAllocation = {
+             ...editingAllocation,
+             customerId: newCustomerId,
+             roomSelections: selectionsForDb,
+             employeeId: formData.employeeId,
+             checkIn: formData.checkIn,
+             checkOut: checkOutDate.toISOString(),
+             numberOfGuests: totalGuests,
+             advanceAmount: advanceVal,
+             remainingAmount: remainingVal,
+             paymentType: formData.paymentType || 'Cash',
+             narration: formData.narration || '',
+             bookingPlatform: selectionsForDb[0].bookingPlatform || 'Counter',
+             registrationNumber: formData.registrationNumber || '',
+             externalBookingId: formData.externalBookingId || '',
+             stayDuration: maxDuration,
+             hsnSacNumber: formData.hsnSacNumber || '',
+             basePrice: totalBasePrice / maxDuration,
+             gstRate: gstRate,
+             price: finalPrice
+          };
+
+          // Construct updated customer object to ensure invoice has latest data
+          const updatedCustomer = {
+               id: newCustomerId,
+               name: formData.guestName,
+               phone: formData.guestPhone,
+               idProof: `${formData.guestIdProofType} - ${formData.guestIdNumber}`,
+               address: formData.guestAddress,
+               gstin: formData.guestGstin || '',
+               companyName: formData.companyName || ''
+          };
+
+          // Trigger Post-Update Modal
+          setPostUpdateData({
+              allocation: updatedAllocation,
+              customer: updatedCustomer
+          });
+          setShowPostUpdateModal(true);
+          
           setEditingAllocation(null);
-          alert("Customer details updated successfully");
       } else {
           // Create New Consolidated Allocation
           await addDoc(allocationsCollection, {
@@ -883,8 +932,8 @@ const Allocations = () => {
      }
   };
 
-  const handlePrintBill = async (allocation, action = 'print') => {
-     const cust = customers.find(c => String(c.id) === String(allocation.customerId));
+  const handlePrintBill = async (allocation, action = 'print', customerOverride = null) => {
+     const cust = customerOverride || customers.find(c => String(c.id) === String(allocation.customerId));
      const employee = employees.find(e => String(e.id) === String(allocation.employeeId));
      
      // Calculations
@@ -2327,6 +2376,49 @@ const Allocations = () => {
                   </button>
                </div>
             </div>
+         </div>,
+         document.body
+      )}
+      
+      {/* Post-Update Action Modal */}
+      {showPostUpdateModal && postUpdateData && createPortal(
+         <div className="fixed inset-0 z-[80] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+                 <div className="p-6 text-center">
+                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                         <CheckCircle size={32} />
+                     </div>
+                     <h3 className="text-xl font-bold text-gray-900 mb-2">Update Successful</h3>
+                     <p className="text-gray-500 text-sm mb-6">Customer details have been updated. What would you like to do next?</p>
+                     
+                     <div className="space-y-3">
+                         <button 
+                             onClick={() => {
+                                 handlePrintBill(postUpdateData.allocation, 'print', postUpdateData.customer);
+                                 setShowPostUpdateModal(false);
+                             }}
+                             className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all"
+                         >
+                             <Printer size={18} /> Print Invoice
+                         </button>
+                         <button 
+                             onClick={() => {
+                                 handlePrintBill(postUpdateData.allocation, 'download', postUpdateData.customer);
+                                 setShowPostUpdateModal(false);
+                             }}
+                             className="w-full flex items-center justify-center gap-2 py-3 bg-white border-2 border-indigo-100 hover:border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold transition-all"
+                         >
+                             <Download size={18} /> Download PDF
+                         </button>
+                         <button 
+                             onClick={() => setShowPostUpdateModal(false)}
+                             className="w-full py-3 text-gray-500 font-bold hover:text-gray-700 transition-colors"
+                         >
+                             Close
+                         </button>
+                     </div>
+                 </div>
+             </div>
          </div>,
          document.body
       )}
