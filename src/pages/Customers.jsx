@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
 import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { UserCheck, Search, Users, Download, X, Clock, Trash2, Edit3, Phone, MapPin, FileText, Eye, Calendar, History } from 'lucide-react';
+import { UserCheck, Search, Users, Download, X, Clock, Trash2, Phone, MapPin, FileText, Eye, Calendar, History } from 'lucide-react';
 
 const Customers = () => {
   const { customers, allocations, rooms } = useAppContext();
@@ -105,18 +105,6 @@ const Customers = () => {
   }, [customers, searchTerm, allocations, dateRange]);
 
   // Handlers
-  const handleEdit = (customer) => {
-    setEditingCustomer(customer);
-    setFormData({
-      name: customer.name || '',
-      phone: customer.phone || '',
-      idProof: customer.idProof || '',
-      address: customer.address || '',
-      customerType: customer.customerType || 'Regular'
-    });
-    setShowForm(true);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
