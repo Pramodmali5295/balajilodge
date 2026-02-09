@@ -579,13 +579,10 @@ const Allocations = () => {
         {
           roomId: '',
           roomType: '',
-          numberOfGuests: 1,
-          stayDuration: 1,
-          bookingPlatform: 'Counter',
-          numberOfGuests: 1,
-          numberOfChildren: 0,
-          stayDuration: 1,
-          bookingPlatform: 'Counter',
+               numberOfGuests: 1,
+               numberOfChildren: 0,
+               stayDuration: 1,
+               bookingPlatform: 'Counter',
           basePrice: ''
         }
       ]
@@ -1597,7 +1594,6 @@ const Allocations = () => {
                                    roomSelections: alloc.roomSelections || [
                                      {
                                        roomId: alloc.roomId,
-                                       roomType: rooms.find(r => String(r.id) === String(alloc.roomId))?.type || '',
                                        roomType: rooms.find(r => String(r.id) === String(alloc.roomId))?.type || '',
                                        numberOfGuests: alloc.numberOfGuests || 1,
                                        numberOfChildren: alloc.numberOfChildren || 0,
