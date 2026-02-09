@@ -137,6 +137,7 @@ const Allocations = () => {
             roomId: '',
             roomType: '',
             numberOfGuests: 1,
+            numberOfChildren: 0,
             stayDuration: 1,
             bookingPlatform: 'Counter',
             basePrice: ''
@@ -200,6 +201,7 @@ const Allocations = () => {
           roomId: '',
           roomType: '',
           numberOfGuests: 1,
+          numberOfChildren: 0,
           stayDuration: 1,
           bookingPlatform: 'Counter',
           basePrice: ''
@@ -222,6 +224,7 @@ const Allocations = () => {
       if (field === 'basePrice' && value < 0) return prev;
       // Prevent invalid Guest count or Duration (must be >= 1)
       if ((field === 'numberOfGuests' || field === 'stayDuration') && value !== '' && value < 1) return prev;
+      if (field === 'numberOfChildren' && value < 0) return prev;
 
       const newSelections = [...prev.roomSelections];
       newSelections[index] = { ...newSelections[index], [field]: value };
@@ -579,6 +582,10 @@ const Allocations = () => {
           numberOfGuests: 1,
           stayDuration: 1,
           bookingPlatform: 'Counter',
+          numberOfGuests: 1,
+          numberOfChildren: 0,
+          stayDuration: 1,
+          bookingPlatform: 'Counter',
           basePrice: ''
         }
       ]
@@ -602,20 +609,17 @@ const Allocations = () => {
         alert("Customer Name must be at least 3 characters.");
         return;
     }
-    if (!formData.guestIdNumber.trim()) {
-        alert("ID Number is required.");
-        return;
-    }
+
 
     // Specific ID Validation
     const idType = formData.guestIdProofType;
     const idNum = formData.guestIdNumber.trim();
 
-    if (idType === 'Aadhar Card' && !/^\d{12}$/.test(idNum)) {
+    if (idNum && idType === 'Aadhar Card' && !/^\d{12}$/.test(idNum)) {
          alert("Aadhar Number must be exactly 12 digits.");
          return;
     }
-    if (idType === 'PAN Card' && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(idNum)) {
+    if (idNum && idType === 'PAN Card' && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(idNum)) {
          alert("Invalid PAN Card Number format.");
          return;
     }
@@ -650,7 +654,7 @@ const Allocations = () => {
           await updateDoc(doc(db, "customers", customerId), {
               name: formData.guestName,
               phone: formData.guestPhone, // Ensure phone is updated if slightly changed but matched? Or keep original? Safe to update.
-              idProof: `${formData.guestIdProofType} - ${formData.guestIdNumber}`,
+              idProof: (formData.guestIdProofType || formData.guestIdNumber) ? `${formData.guestIdProofType || ''} - ${formData.guestIdNumber || ''}` : '',
               address: formData.guestAddress,
               customerType: formData.customerType,
               visitHistory: newVisits,
@@ -663,7 +667,7 @@ const Allocations = () => {
           const customerData = {
               name: formData.guestName,
               phone: formData.guestPhone,
-              idProof: `${formData.guestIdProofType} - ${formData.guestIdNumber}`,
+              idProof: (formData.guestIdProofType || formData.guestIdNumber) ? `${formData.guestIdProofType || ''} - ${formData.guestIdNumber || ''}` : '',
               address: formData.guestAddress,
               customerType: formData.customerType,
               visitHistory: 1,
@@ -685,6 +689,7 @@ const Allocations = () => {
       const gstRate = parseFloat(formData.gstRate) || 0;
       let totalBasePrice = 0;
       let totalGuests = 0;
+      let totalChildren = 0;
       let maxDuration = 0;
       
       const selectionsForDb = formData.roomSelections.map(s => {
@@ -692,12 +697,14 @@ const Allocations = () => {
          const dur = parseInt(s.stayDuration) || 1;
          totalBasePrice += (bp * dur);
          totalGuests += (parseInt(s.numberOfGuests) || 1);
+         totalChildren += (parseInt(s.numberOfChildren) || 0);
          if (dur > maxDuration) maxDuration = dur;
          
          return {
             roomId: s.roomId,
             roomType: s.roomType || '',
             numberOfGuests: parseInt(s.numberOfGuests) || 1,
+            numberOfChildren: parseInt(s.numberOfChildren) || 0,
             stayDuration: dur,
             bookingPlatform: s.bookingPlatform || 'Counter',
             basePrice: bp
@@ -732,6 +739,7 @@ const Allocations = () => {
              checkIn: formData.checkIn,
              checkOut: checkOutDate.toISOString(),
              numberOfGuests: totalGuests,
+             numberOfChildren: totalChildren,
              advanceAmount: advanceVal,
              remainingAmount: remainingVal,
              paymentType: formData.paymentType || 'Cash',
@@ -762,6 +770,7 @@ const Allocations = () => {
              checkIn: formData.checkIn,
              checkOut: checkOutDate.toISOString(),
              numberOfGuests: totalGuests,
+             numberOfChildren: totalChildren,
              advanceAmount: advanceVal,
              remainingAmount: remainingVal,
              paymentType: formData.paymentType || 'Cash',
@@ -781,7 +790,7 @@ const Allocations = () => {
                id: newCustomerId,
                name: formData.guestName,
                phone: formData.guestPhone,
-               idProof: `${formData.guestIdProofType} - ${formData.guestIdNumber}`,
+               idProof: (formData.guestIdProofType || formData.guestIdNumber) ? `${formData.guestIdProofType || ''} - ${formData.guestIdNumber || ''}` : '',
                address: formData.guestAddress,
                gstin: formData.guestGstin || '',
                companyName: formData.companyName || ''
@@ -805,6 +814,7 @@ const Allocations = () => {
              checkIn: formData.checkIn,
              checkOut: checkOutDate.toISOString(),
              numberOfGuests: totalGuests,
+             numberOfChildren: totalChildren,
              basePrice: totalBasePrice / maxDuration, 
              gstRate: gstRate,
              price: finalPrice,
@@ -970,7 +980,7 @@ const Allocations = () => {
      const cgstAmount = totalTax / 2;
      const sgstAmount = totalTax / 2;
 
-     let invoiceNumber = allocation.invoiceNumber;
+      let invoiceNumber = allocation.invoiceNumber;
      if (!invoiceNumber) {
         try {
            const q = query(collection(db, "invoices"), where("allocationId", "==", allocation.id));
@@ -979,16 +989,34 @@ const Allocations = () => {
               invoiceNumber = querySnapshot.docs[0].data().invoiceNumber;
            } else {
               let nextNum = 1;
+              // Fiscal Year Logic
+              const d = new Date();
+              const currentMonth = d.getMonth(); // 0-11
+              const currentYear = d.getFullYear();
+              // Fiscal Year starts April 1st. If Jan-Mar, logic belongs to previous year start.
+              const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+              const fyString = `${startYear}/${String(startYear + 1).slice(-2)}`; // e.g., 2025/26
+
               try {
                   const lastInvQuery = query(collection(db, "invoices"), orderBy("createdAt", "desc"), limit(1));
                   const lastInvSnap = await getDocs(lastInvQuery);
                   if (!lastInvSnap.empty) {
-                     const lastId = String(lastInvSnap.docs[0].data().invoiceNumber);
-                     const match = lastId.match(/(\d+)/);
-                     if (match) nextNum = parseInt(match[0], 10) + 1;
+                     const lastData = lastInvSnap.docs[0].data();
+                     const lastId = String(lastData.invoiceNumber || '');
+                     
+                     // Check if Last Invoice belongs to Current Fiscal Year series
+                     if (lastId.startsWith(fyString)) {
+                         const parts = lastId.split('/');
+                         const lastSeq = parseInt(parts[parts.length - 1], 10);
+                         if (!isNaN(lastSeq)) {
+                             nextNum = lastSeq + 1;
+                         }
+                     }
                   }
               } catch (err) { console.warn("Sequence fetch failed", err); }
-              invoiceNumber = String(nextNum).padStart(4, '0');
+              
+              invoiceNumber = `${fyString}/${nextNum}`;
+
               await addDoc(collection(db, "invoices"), {
                  invoiceNumber: invoiceNumber,
                  allocationId: allocation.id,
@@ -1095,6 +1123,7 @@ const Allocations = () => {
                    <th style="width: 60px;">Room No</th>
                    <th style="width: 40px;">GST</th>
                    <th style="width: 60px;">Guests</th>
+                   <th style="width: 40px;">Childs</th>
                    <th style="width: 40px;">Days</th>
                    <th>Booking Type</th>
                    <th>Room Type</th>
@@ -1112,6 +1141,7 @@ const Allocations = () => {
                         <td class="text-center">${rNum}</td>
                         <td class="text-center">${gstRate.toFixed(2)}%</td>
                         <td class="text-center">${String(s.numberOfGuests).padStart(2, '0')}</td>
+                        <td class="text-center">${String(s.numberOfChildren || 0).padStart(2, '0')}</td>
                         <td class="text-center">${s.stayDuration}</td>
                         <td class="text-center">${s.bookingPlatform || allocation.bookingPlatform}</td>
                         <td class="text-center">${s.roomType || '---'}</td>
@@ -1405,6 +1435,7 @@ const Allocations = () => {
                     <th className="px-4 py-3 text-center whitespace-nowrap">Room No</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Customer Name</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Contact No</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Occupancy</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Duration</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Duty Staff</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Pending Amount</th>
@@ -1468,6 +1499,16 @@ const Allocations = () => {
                      </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className="text-xs font-bold text-gray-700">{getCustomerPhone(alloc.customerId)}</span>
+                     </td>
+                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex flex-col items-center">
+                           <span className="text-xs font-black text-gray-800">{alloc.numberOfGuests} Guests</span>
+                           {alloc.numberOfChildren > 0 && (
+                              <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 rounded border border-rose-100 mt-0.5">
+                                 {alloc.numberOfChildren} Child(s)
+                              </span>
+                           )}
+                        </div>
                      </td>
                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="space-y-1 flex flex-col items-center">
@@ -1548,6 +1589,7 @@ const Allocations = () => {
                                    externalBookingId: alloc.externalBookingId || '',
                                    bookingPlatform: alloc.bookingPlatform || 'Counter',
                                    numberOfGuests: alloc.numberOfGuests || 1,
+                                   numberOfChildren: alloc.numberOfChildren || 0,
                                    stayDuration: alloc.stayDuration || 1,
                                    existingCustomerId: alloc.customerId,
                                    hsnSacNumber: alloc.hsnSacNumber || '',
@@ -1556,7 +1598,9 @@ const Allocations = () => {
                                      {
                                        roomId: alloc.roomId,
                                        roomType: rooms.find(r => String(r.id) === String(alloc.roomId))?.type || '',
+                                       roomType: rooms.find(r => String(r.id) === String(alloc.roomId))?.type || '',
                                        numberOfGuests: alloc.numberOfGuests || 1,
+                                       numberOfChildren: alloc.numberOfChildren || 0,
                                        stayDuration: alloc.stayDuration || 1,
                                        bookingPlatform: alloc.bookingPlatform || 'Counter',
                                        basePrice: alloc.basePrice || ''
@@ -1719,8 +1763,8 @@ const Allocations = () => {
                                          <input type="text" name="guestGstin" value={formData.guestGstin} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" placeholder="GSTIN (Optional)" />
                                       </div>
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">ID Proof Type <span className="text-red-500">*</span></label>
-                                         <select name="guestIdProofType" value={formData.guestIdProofType} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" required>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">ID Proof Type</label>
+                                         <select name="guestIdProofType" value={formData.guestIdProofType} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all">
                                             <option value="">Select ID Type</option>
                                             <option value="Aadhar Card">Aadhar Card</option>
                                             <option value="Voter ID">Voter ID</option>
@@ -1735,7 +1779,7 @@ const Allocations = () => {
                                   {/* Row 5: ID Number */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                       <div>
-                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Enter ID Proof Number <span className="text-red-500">*</span></label>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Enter ID Proof Number</label>
                                          <input 
                                            type="text" 
                                            name="guestIdNumber" 
@@ -1744,7 +1788,6 @@ const Allocations = () => {
                                            disabled={!formData.guestIdProofType}
                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-100" 
                                            placeholder={formData.guestIdProofType ? `Enter ${formData.guestIdProofType}` : "Select ID Type first"} 
-                                           required 
                                          />
                                       </div>
                                   </div>
@@ -1797,10 +1840,11 @@ const Allocations = () => {
                                   <div className="overflow-x-auto custom-scrollbar pb-2">
                                      <div className="min-w-[1000px]">
                                         <div className="grid grid-cols-12 gap-4 mb-3 px-3 py-2 bg-gray-50/50 rounded-lg border border-gray-100">
-                                           <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room No</div>
+                                           <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Booking Type</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Persons</div>
+                                           <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Childs</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Days</div>
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Price / Day</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Total</div>
@@ -1811,22 +1855,6 @@ const Allocations = () => {
                                            {formData.roomSelections.map((selection, idx) => (
                                               <div key={idx} className="grid grid-cols-12 gap-4 items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all group">
                                                  
-                                                 {/* Room Type */}
-                                                 <div className="col-span-2">
-                                                    <div className="relative">
-                                                       <select 
-                                                          value={selection.roomType} 
-                                                          onChange={(e) => updateRoomSelection(idx, 'roomType', e.target.value)}
-                                                          className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all"
-                                                       >
-                                                          <option value="">Select Room Type</option>
-                                                          <option value="AC">AC</option>
-                                                          <option value="Non-AC">Non-AC</option>
-                                                       </select>
-                                                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                                                    </div> 
-                                                 </div>
-
                                                  {/* Room Select */}
                                                  <div className="col-span-2">
                                                     <div className="relative">
@@ -1847,6 +1875,22 @@ const Allocations = () => {
                                                        </select>
                                                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                                                     </div>
+                                                 </div>
+
+                                                 {/* Room Type */}
+                                                 <div className="col-span-1">
+                                                    <div className="relative">
+                                                       <select 
+                                                          value={selection.roomType} 
+                                                          onChange={(e) => updateRoomSelection(idx, 'roomType', e.target.value)}
+                                                          className="w-full pl-2 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer transition-all truncate"
+                                                       >
+                                                          <option value="">Type</option>
+                                                          <option value="AC">AC</option>
+                                                          <option value="Non-AC">Non-AC</option>
+                                                       </select>
+                                                       <ChevronDown size={14} className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                    </div> 
                                                  </div>
 
                                                  {/* Booking Type */}
@@ -1889,6 +1933,26 @@ const Allocations = () => {
                                                        }}
                                                        className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none no-spinners transition-all"
                                                        placeholder="Guests"
+                                                    />
+                                                 </div>
+
+                                                 {/* Number of Children */}
+                                                 <div className="col-span-1">
+                                                    <input 
+                                                       type="number" 
+                                                       min="0"
+                                                       value={selection.numberOfChildren} 
+                                                       onChange={(e) => {
+                                                          const val = e.target.value;
+                                                          updateRoomSelection(idx, 'numberOfChildren', val === '' ? '' : parseInt(val));
+                                                       }}
+                                                       onWheel={(e) => e.target.blur()}
+                                                       onBlur={(e) => {
+                                                          const val = parseInt(e.target.value);
+                                                          if (isNaN(val) || val < 0) updateRoomSelection(idx, 'numberOfChildren', 0);
+                                                       }}
+                                                       className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-center focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none no-spinners transition-all"
+                                                       placeholder="Childs"
                                                     />
                                                  </div>
 
@@ -2228,6 +2292,10 @@ const Allocations = () => {
                            <div>
                               <p className="text-[10px] text-gray-400 font-bold uppercase">Guests</p>
                               <p className="text-sm font-black text-gray-900">{viewingAllocation.numberOfGuests || 1}</p>
+                           </div>
+                           <div>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase">Children</p>
+                              <p className="text-sm font-black text-gray-900">{viewingAllocation.numberOfChildren || 0}</p>
                            </div>
                            <div>
                               <p className="text-[10px] text-gray-400 font-bold uppercase">Staff</p>

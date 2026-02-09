@@ -5,7 +5,9 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  updatePassword
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -21,7 +23,11 @@ export function AuthProvider({ children }) {
   const [isSigningUp, setIsSigningUp] = useState(false);
 
   // Helper to create email from username
-  const getEmailFromUsername = (username) => `${username.toLowerCase().replace(/\s+/g, '')}@balajilodge.app`;
+  const getEmailFromUsername = (username) => {
+      const cleanName = username.toLowerCase().replace(/\s+/g, '');
+      if (cleanName === 'balajilodge' || cleanName === 'pramod' || cleanName === 'pramodmali') return 'balajilodgingpandharpur@gmail.com';
+      return `${cleanName}@balajilodge.app`;
+  };
 
   async function signup(username, password, mobile, lodgeName) {
     setIsSigningUp(true); // Set flag before signup
@@ -49,7 +55,57 @@ export function AuthProvider({ children }) {
 
   async function login(username, password) {
     const email = getEmailFromUsername(username);
-    return signInWithEmailAndPassword(auth, email, password);
+    try {
+        return await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        // If login fails, try to create the account (Lazy Provisioning)
+        // This handles the "Static User" case where the user expects "balajilodge" to just work
+        // regardless of whether the backend account exists yet.
+        if (email === 'balajilodgingpandharpur@gmail.com') {
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                // Create user doc if successful
+                await setDoc(doc(db, "users", cred.user.uid), {
+                    username,
+                    role: 'admin',
+                    createdAt: new Date().toISOString()
+                });
+                return cred;
+            } catch (createError) {
+                // If creation failed because email exists, it means the original login error was likely 'Wrong Password'
+                if (createError.code === 'auth/email-already-in-use') {
+                   throw error; // Throw the original login error
+                }
+                throw createError; // Throw the creation error (e.g. weak password)
+            }
+        }
+        throw error;
+    }
+  }
+
+  async function resetPassword(username) {
+    const email = getEmailFromUsername(username);
+    console.log("Attempting password reset for:", email);
+    try {
+        await sendPasswordResetEmail(auth, email);
+        console.log("Reset email sent successfully to:", email);
+    } catch (error) {
+        console.error("Reset email failed:", error);
+        throw error;
+    }
+  }
+
+  async function changePassword(username, oldPassword, newPassword) {
+    const email = getEmailFromUsername(username);
+    // 1. Sign in to verify old credentials and get user
+    const userCredential = await signInWithEmailAndPassword(auth, email, oldPassword);
+    const user = userCredential.user;
+    
+    // 2. Update password
+    await updatePassword(user, newPassword);
+    
+    // 3. Sign out so they can log in with new password
+    await signOut(auth);
   }
 
   function logout() {
@@ -78,6 +134,8 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
+    resetPassword,
+    changePassword,
     isSigningUp
   };
 

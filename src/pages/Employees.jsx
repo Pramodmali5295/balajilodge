@@ -125,7 +125,25 @@ const Employees = () => {
         alert("Invalid Phone number. Format: 10 digits.");
         return;
     }
-    // Conditional ID Validation (Only if provided)
+    // Strict Mandatory Check
+    if (!formData.idProofType) {
+        alert("Please select an ID Proof Type.");
+        return;
+    }
+    if (!formData.aadharNumber || !formData.aadharNumber.trim()) {
+        alert("ID Number is required.");
+        return;
+    }
+    if (!formData.address || !formData.address.trim()) {
+        alert("Residential Address is required.");
+        return;
+    }
+    if (!formData.joiningDate) {
+        alert("Joining Date is required.");
+        return;
+    }
+
+    // Specific Format Validation
     if (formData.idProofType && formData.aadharNumber.trim()) {
         const idType = formData.idProofType;
         const idNum = formData.aadharNumber.trim().toUpperCase();
@@ -595,7 +613,7 @@ const Employees = () => {
                            
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                <div>
-                                 <label className="block text-xs font-bold text-gray-600 mb-1">Full Name</label>
+                                 <label className="block text-xs font-bold text-gray-600 mb-1">Full Name <span className="text-red-500">*</span></label>
                                  <div className="relative group">
                                     <User size={14} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                                     <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all" placeholder="e.g. Rahul Sharma" required />
@@ -603,7 +621,7 @@ const Employees = () => {
                                </div>
 
                                <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">Phone Number</label>
+                                  <label className="block text-xs font-bold text-gray-600 mb-1">Phone Number <span className="text-red-500">*</span></label>
                                   <div className="relative group">
                                      <Phone size={14} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all" placeholder="e.g. 9876543210" required />
@@ -613,7 +631,7 @@ const Employees = () => {
 
                             <div className="grid grid-cols-2 gap-3">
                                <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">Role</label>
+                                  <label className="block text-xs font-bold text-gray-600 mb-1">Role <span className="text-red-500">*</span></label>
                                   <div className="relative">
                                      <Shield size={14} className="absolute left-3 top-2.5 text-gray-400" />
                                      <select name="role" value={formData.role} onChange={handleChange} className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all appearance-none cursor-pointer">
@@ -622,7 +640,7 @@ const Employees = () => {
                                   </div>
                                </div>
                                <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">Status</label>
+                                  <label className="block text-xs font-bold text-gray-600 mb-1">Status <span className="text-red-500">*</span></label>
                                   <div className="relative">
                                      <CheckCircle2 size={14} className="absolute left-3 top-2.5 text-gray-400" />
                                      <select name="status" value={formData.status} onChange={handleChange} className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all appearance-none cursor-pointer">
@@ -636,10 +654,16 @@ const Employees = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                   <label className="block text-xs font-bold text-gray-600 mb-1">ID Proof Type</label>
+                                   <label className="block text-xs font-bold text-gray-600 mb-1">ID Proof Type <span className="text-red-500">*</span></label>
                                    <div className="relative group">
                                       <CreditCard size={14} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                                      <select name="idProofType" value={formData.idProofType} onChange={handleChange} className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all appearance-none cursor-pointer">
+                                      <select 
+                                         name="idProofType" 
+                                         value={formData.idProofType} 
+                                         onChange={handleChange} 
+                                         className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all appearance-none cursor-pointer"
+                                         required
+                                      >
                                          <option value="">Select ID Proof Type</option>
                                          <option value="Aadhar">Aadhar Card</option>
                                          <option value="PAN">PAN Card</option>
@@ -650,22 +674,23 @@ const Employees = () => {
                                    </div>
                                 </div>
                                <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">ID Number</label>
+                                  <label className="block text-xs font-bold text-gray-600 mb-1">ID Number <span className="text-red-500">*</span></label>
                                   <div className="relative group">
                                      <FileText size={14} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                                      <input 
-                                       type="text" 
+                                       type="text"
                                        name="aadharNumber" 
                                        value={formData.aadharNumber} 
                                        onChange={handleChange} 
                                        disabled={!formData.idProofType}
                                        className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100" 
                                        placeholder={formData.idProofType ? `Enter ${formData.idProofType} Number` : "Select ID Type first"}
+                                       required
                                      />
                                   </div>
                                </div>
                                <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">Joining Date</label>
+                                  <label className="block text-xs font-bold text-gray-600 mb-1">Joining Date <span className="text-red-500">*</span></label>
                                   <div className="relative">
                                      <Calendar size={14} className="absolute left-3 top-2.5 text-gray-400" />
                                      <input 
@@ -682,20 +707,14 @@ const Employees = () => {
                                   </div>
                                </div>
                                <div>
-                                  <label className="block text-xs font-bold text-gray-600 mb-1">Residential Address</label>
+                                  <label className="block text-xs font-bold text-gray-600 mb-1">Residential Address <span className="text-red-500">*</span></label>
                                   <div className="relative group">
                                      <MapPin size={14} className="absolute left-3 top-2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                                     <textarea name="address" value={formData.address} onChange={handleChange} rows="1" className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all resize-none" placeholder="Full address"></textarea>
+                                     <textarea name="address" value={formData.address} onChange={handleChange} rows="1" className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all resize-none" placeholder="Full address" required></textarea>
                                   </div>
                                </div>
                             </div>
-
-
-
                   </div>
-
-
-
                      <div className="pt-6 flex gap-3">
                         <button 
                            type="button" 
@@ -718,9 +737,6 @@ const Employees = () => {
         </div>,
         document.body
       )}
-
-
-
     </div>
   );
 };

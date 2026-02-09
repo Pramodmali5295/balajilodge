@@ -2,11 +2,61 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../services/firebase';
-import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { UserCheck, Search, Users, Download, X, Clock, Trash2, Phone, MapPin, FileText, Eye, Calendar, History } from 'lucide-react';
+import { updateDoc, doc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
+import { UserCheck, Search, Users, Download, X, Clock, Trash2, Phone, MapPin, FileText, Eye, Calendar, History, Printer } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
+import logoImage from '../assets/logo.jpg';
 
 const Customers = () => {
-  const { customers, allocations, rooms } = useAppContext();
+    const { customers, allocations, rooms, employees } = useAppContext();
+
+  // --- Date Formatting Helper ---
+  const formatBillDate = (dateStr) => {
+     if (!dateStr) return "---";
+     const d = new Date(dateStr);
+     const day = String(d.getDate()).padStart(2, '0');
+     const month = String(d.getMonth() + 1).padStart(2, '0');
+     const year = d.getFullYear();
+     
+     let hrs = d.getHours();
+     const mins = String(d.getMinutes()).padStart(2, '0');
+     const ampm = hrs >= 12 ? 'PM' : 'AM';
+     hrs = hrs % 12;
+     hrs = hrs ? hrs : 12; 
+     const hrsStr = String(hrs).padStart(2, '0');
+     
+     return `${day}-${month}-${year} ${hrsStr}:${mins} ${ampm}`;
+  };
+
+  // --- Number to Words Helper (Indian Format) ---
+  const numberToWords = (num) => {
+     const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+     const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+     
+     const g = (n) => {
+        if (n === 0) return '';
+        if (n < 20) return a[n];
+        if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
+        if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + g(n % 100) : '');
+        if (n < 100000) return g(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + g(n % 1000) : '');
+        if (n < 10000000) return g(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + g(n % 100000) : '');
+        return g(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + g(n % 10000000) : '');
+     };
+
+     const whole = Math.floor(num);
+     const fraction = Math.round((num - whole) * 100);
+     let str = g(whole);
+     if (str) str += ' Rupees';
+     if (fraction > 0) {
+        str += (str ? ' and ' : '') + g(fraction) + ' Paise';
+     }
+     return (str || 'Zero') + ' Only';
+  };
+    
+  const getRoomNumber = (roomId) => {
+     const r = rooms.find(rm => String(rm.id) === String(roomId));
+     return r ? r.roomNumber : '---';
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -136,6 +186,8 @@ const Customers = () => {
       'Customer Type',
       'First Registered', 
       'Last Visit',
+      'Latest Visit Guests',
+      'Latest Visit Children',
       'Visits (In Range)',
       'Total Visits (Lifetime)',
       'Range Total (Without GST)', 
@@ -176,9 +228,16 @@ const Customers = () => {
 
        // Calculate Last Visit (from ALL stays usually, or just range? Use Range if available, else N/A)
        let lastVisit = 'N/A';
+       let lastGuests = '0';
+       let lastChildren = '0';
+
        if (rangeStays.length > 0) {
-          const lastDate = new Date(Math.max(...rangeStays.map(a => new Date(a.checkIn).getTime())));
+          const sortedStays = [...rangeStays].sort((a,b) => new Date(b.checkIn) - new Date(a.checkIn));
+          const latestStay = sortedStays[0];
+          const lastDate = new Date(latestStay.checkIn);
           lastVisit = fmtDate(lastDate);
+          lastGuests = String(latestStay.numberOfGuests || 1);
+          lastChildren = String(latestStay.numberOfChildren || 0);
        } else if (allStays.length > 0) {
           // Fallback to show they visited before, but indicate it wasnt in range?
           // The user asked for specific date csv. 
@@ -265,6 +324,8 @@ const Customers = () => {
           escapeCsv(c.customerType || c.guestType || 'Regular'),
           registered,
           lastVisit,
+          lastGuests,
+          lastChildren,
           visitCountInRange,
           lifetimeVisits,
           totalRevenue.toFixed(2),
@@ -288,6 +349,331 @@ const Customers = () => {
     a.download = `balaji-guest-ledger-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handlePrintReport = async (customer, action) => {
+    // Find Latest Allocation
+    const custStays = allocations
+        .filter(a => String(a.customerId) === String(customer.id))
+        .sort((a,b) => new Date(b.checkIn) - new Date(a.checkIn));
+
+    if (custStays.length === 0) {
+        alert("No booking history found for this customer.");
+        return;
+    }
+
+    const allocation = custStays[0]; // Use Latest
+    const cust = customer; // Alias
+    const employee = employees.find(e => String(e.id) === String(allocation.employeeId));
+
+     // Prepare Calculation Data
+     const gstRate = Number(allocation.gstRate || 0);
+     const selections = allocation.roomSelections || [{ 
+         roomId: allocation.roomId, 
+         numberOfGuests: allocation.numberOfGuests || 1, 
+         stayDuration: allocation.stayDuration || 1, 
+         bookingPlatform: allocation.bookingPlatform || 'Counter',
+         basePrice: allocation.basePrice,
+         roomType: rooms.find(r => String(r.id) === String(allocation.roomId))?.type || ''
+     }];
+
+     let taxableValue = 0;
+     let totalTax = 0;
+     
+     const roomWiseGst = selections.map(s => {
+         const bp = parseFloat(s.basePrice) || 0;
+         const dur = parseInt(s.stayDuration) || 1;
+         const lineTaxable = bp * dur;
+         const lineGst = lineTaxable * (gstRate / 100);
+         taxableValue += lineTaxable;
+         totalTax += lineGst;
+         return {
+             ...s,
+             lineTaxable,
+             lineCgst: lineGst / 2,
+             lineSgst: lineGst / 2,
+             lineTotalTax: lineGst
+         };
+     });
+
+     const totalInclusivePrice = taxableValue + totalTax;
+     const cgstAmount = totalTax / 2;
+     const sgstAmount = totalTax / 2;
+
+     let invoiceNumber = allocation.invoiceNumber;
+     
+     if (!invoiceNumber) {
+        try {
+           const q = query(collection(db, "invoices"), where("allocationId", "==", allocation.id));
+           const querySnapshot = await getDocs(q);
+           if (!querySnapshot.empty) {
+              invoiceNumber = querySnapshot.docs[0].data().invoiceNumber;
+           } else {
+              let nextNum = 1;
+              const d = new Date();
+              const currentMonth = d.getMonth(); 
+              const currentYear = d.getFullYear();
+              const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+              const fyString = `${startYear}/${String(startYear + 1).slice(-2)}`; 
+
+              try {
+                  const lastInvQuery = query(collection(db, "invoices"), orderBy("createdAt", "desc"), limit(1));
+                  const lastInvSnap = await getDocs(lastInvQuery);
+                  if (!lastInvSnap.empty) {
+                     const lastData = lastInvSnap.docs[0].data();
+                     const lastId = String(lastData.invoiceNumber || '');
+                     
+                     if (lastId.startsWith(fyString)) {
+                         const parts = lastId.split('/');
+                         const lastSeq = parseInt(parts[parts.length - 1], 10);
+                         if (!isNaN(lastSeq)) {
+                             nextNum = lastSeq + 1;
+                         }
+                     }
+                  }
+              } catch (err) { console.warn("Sequence fetch failed", err); }
+              
+              invoiceNumber = `${fyString}/${nextNum}`;
+
+              await addDoc(collection(db, "invoices"), {
+                 invoiceNumber: invoiceNumber,
+                 allocationId: allocation.id,
+                 customerId: allocation.customerId,
+                 customerName: cust?.name || 'Guest',
+                 amount: totalInclusivePrice,
+                 createdAt: new Date().toISOString()
+              });
+              await updateDoc(doc(db, "allocations", allocation.id), { invoiceNumber: invoiceNumber });
+              
+              allocation.invoiceNumber = invoiceNumber;
+           }
+        } catch (error) { invoiceNumber = `INV-${Date.now().toString().slice(-4)}`; }
+     }
+
+     // Generate HTML
+     const invoiceHTML = `
+       <html>
+         <head>
+           <title>Invoice #${invoiceNumber}</title>
+           <style>
+             @page { size: A4; margin: 15mm; }
+             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; color: #000; font-size: 12px; line-height: 1.4; }
+             .invoice-box { width: 100%; margin: auto; padding: 0 30px; box-sizing: border-box; }
+             
+             /* Customer Section */
+             .customer-info { margin-bottom: 15px; }
+             .info-row { display: flex; margin-bottom: 2px; }
+             .info-label { width: 110px; font-weight: bold; flex-shrink: 0; }
+             .info-value { flex-grow: 1; }
+
+             /* Table Styles */
+             table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+             table, th, td { border: 1px solid #000; }
+             th { background-color: #f2f2f2; padding: 8px 4px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+             td { padding: 8px 4px; vertical-align: middle; font-size: 11px; }
+             .text-center { text-align: center; }
+             .text-right { text-align: right; }
+
+             /* GST Summary */
+             .gst-analysis th { background-color: #f9f9f9; }
+             
+             /* Calculation Section */
+             .total-section { display: flex; justify-content: space-between; margin-top: 10px; }
+             .words-section { width: 65%; font-style: italic; }
+             .calc-box { width: 30%; }
+             .calc-row { display: flex; justify-content: space-between; padding: 2px 0; }
+             .calc-label { font-weight: bold; }
+
+             /* Footer Section */
+             .footer { margin-top: 40px; }
+             .sig-area { display: flex; justify-content: space-between; margin-top: 50px; }
+             .sig-box { text-align: center; width: 220px; }
+             .sig-line { border-top: 1px solid #000; margin-bottom: 4px; }
+             .jurisdiction { font-weight: bold; text-align: center; margin-top: 20px; font-size: 10px; text-transform: uppercase; }
+             .computer-gen { text-align: center; font-size: 8px; color: #666; margin-top: 5px; }
+           </style>
+         </head>
+         <body>
+           <div class="invoice-box">
+             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
+               <div style="text-align: left;">
+                  <img src="${logoImage}" alt="Logo" style="height: 90px; width: 180px;" />
+               </div>
+
+               <div style="text-align: right;">
+                 <div style="font-size: 22px; font-weight: bold; margin-bottom: 4px;">Balaji Lodging</div>
+                 <div style="font-size: 10px; line-height: 1.4;">
+                   Opp. Railway Station, Near Shriyash Hospital, Pandharpur 413304.<br>
+                   Phone : +91 9284793956 / 8080248271<br>
+                   GSTIN/UIN: 27AAPFB9198M1ZE<br>
+                   Email: balajilodgingpandharpur@gmail.com
+                 </div>
+               </div>
+             </div>
+
+             <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px;">
+                <div style="flex: 1;">
+                   <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">CUSTOMER DETAILS</div>
+                   <div class="info-row"><span class="info-label">Booked By :</span> <span class="info-value" style="font-weight:bold;">${employee?.name || '---'}</span></div>
+                   <div class="info-row"><span class="info-label">Name :</span> <span class="info-value" style="font-weight:bold;">${cust?.name || '---'}</span></div>
+                   <div class="info-row"><span class="info-label">Address :</span> <span class="info-value">${cust?.address || '---'}</span></div>
+                   <div class="info-row"><span class="info-label">GSTIN :</span> <span class="info-value">${cust?.gstin || '---'}</span></div>
+                   <div class="info-row"><span class="info-label">Company :</span> <span class="info-value">${cust?.companyName || '---'}</span></div>
+                   <div class="info-row"><span class="info-label">Phone :</span> <span class="info-value">${cust?.phone || '---'}</span></div>
+                </div>
+
+                <div style="flex: 0.8;">
+                   <div style="font-weight:bold; margin-bottom: 5px; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 2px;">INVOICE DETAILS</div>
+                   <div style="display: grid; grid-template-columns: auto auto; gap: 4px 10px; font-size: 11px;">
+                      <span style="font-weight: bold;">Invoice No :</span> <span style="font-weight:bold;">${invoiceNumber}</span>
+                      <span style="font-weight: bold;">Invoice Date :</span> <span>${(() => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })()}</span>
+                      <span style="font-weight: bold;">Arrival :</span> <span>${formatBillDate(allocation.checkIn)}</span>
+                      <span style="font-weight: bold;">Departure :</span> <span>${formatBillDate(allocation.checkOut)}</span>
+                      <span style="font-weight: bold;">Reg. No :</span> <span>${allocation.registrationNumber || '---'}</span>
+                      <span style="font-weight: bold;">Booking ID :</span> <span>${allocation.externalBookingId || '0'}</span>
+                   </div>
+                </div>
+             </div>
+
+             <table>
+               <thead>
+                 <tr>
+                   <th style="width: 30px;">Sr.No</th>
+                   <th style="width: 60px;">Room No</th>
+                   <th style="width: 40px;">GST</th>
+                   <th style="width: 60px;">Guests</th>
+                   <th style="width: 40px;">Childs</th>
+                   <th style="width: 40px;">Days</th>
+                   <th>Booking Type</th>
+                   <th>Room Type</th>
+                   <th style="width: 80px;">Rate</th>
+                   <th style="width: 90px;">Total</th>
+                 </tr>
+               </thead>
+                <tbody>
+                  ${selections.map((s, i) => {
+                    const rNum = getRoomNumber(s.roomId);
+                    const lineTotal = (parseFloat(s.basePrice) || 0) * (parseInt(s.stayDuration) || 1);
+                    return `
+                      <tr>
+                        <td class="text-center">${i + 1}</td>
+                        <td class="text-center">${rNum}</td>
+                        <td class="text-center">${gstRate.toFixed(2)}%</td>
+                        <td class="text-center">${String(s.numberOfGuests).padStart(2, '0')}</td>
+                        <td class="text-center">${String(s.numberOfChildren || 0).padStart(2, '0')}</td>
+                        <td class="text-center">${s.stayDuration}</td>
+                        <td class="text-center">${s.bookingPlatform || allocation.bookingPlatform}</td>
+                        <td class="text-center">${s.roomType || '---'}</td>
+                        <td class="text-center">${(parseFloat(s.basePrice) || 0).toFixed(2)}</td>
+                        <td class="text-center">${lineTotal.toFixed(2)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+             </table>
+
+             <div class="total-section">
+               <div class="words-section">
+                 <div style="margin-bottom: 10px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePrice)}</div>
+                 <div><strong>Narration :</strong> ${allocation.narration || allocation.paymentType || '---'}</div>
+               </div>
+               <div class="calc-box">
+                 <div class="calc-row"><span>Other Rs.</span> <span>0.00</span></div>
+                 <div class="calc-row"><span>Subtotal Rs.</span> <span>${taxableValue.toFixed(2)}</span></div>
+                 <div class="calc-row"><span>SGST Rs.</span> <span>${sgstAmount.toFixed(2)}</span></div>
+                 <div class="calc-row"><span>CGST Rs.</span> <span>${cgstAmount.toFixed(2)}</span></div>
+                 <div class="calc-row" style="border-top: 1px solid #000; margin-top:2px; padding-top:2px; font-weight:bold; font-size:13px;">
+                   <span>Total Rs.</span> <span>${totalInclusivePrice.toFixed(2)}</span>
+                 </div>
+               </div>
+             </div>
+
+             <div style="margin-top: 25px; font-weight:bold; text-decoration: underline; margin-bottom: 5px;">GST Breakdown</div>
+             <table class="gst-analysis">
+               <thead>
+                 <tr>
+                   <th rowspan="2">Sr.No</th>
+                   <th rowspan="2">HSN/SAC</th>
+                   <th rowspan="2">Taxable Value</th>
+                   <th colspan="2">CGST</th>
+                   <th colspan="2">SGST</th>
+                   <th rowspan="2">Total Tax</th>
+                 </tr>
+                 <tr>
+                   <th>Tax</th>
+                   <th>Amount</th>
+                   <th>Tax</th>
+                   <th>Amount</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 ${roomWiseGst.map((s, i) => `
+                   <tr>
+                     <td class="text-center">${i + 1}</td>
+                     <td class="text-center">${allocation.hsnSacNumber || '996311'}</td>
+                     <td class="text-center">${s.lineTaxable.toFixed(2)}</td>
+                     <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
+                     <td class="text-center">${s.lineCgst.toFixed(2)}</td>
+                     <td class="text-center">${(gstRate / 2).toFixed(2)}%</td>
+                     <td class="text-center">${s.lineSgst.toFixed(2)}</td>
+                     <td class="text-center">${s.lineTotalTax.toFixed(2)}</td>
+                   </tr>
+                 `).join('')}
+                 <tr style="font-weight:bold; background-color: #f9f9f9;">
+                   <td colspan="2" class="text-center">Total</td>
+                   <td class="text-center">${taxableValue.toFixed(2)}</td>
+                   <td></td>
+                   <td class="text-center">${cgstAmount.toFixed(2)}</td>
+                   <td></td>
+                   <td class="text-center">${sgstAmount.toFixed(2)}</td>
+                   <td class="text-center">${totalTax.toFixed(2)}</td>
+                 </tr>
+               </tbody>
+             </table>
+             
+             <div style="margin-bottom: 20px;"><strong>Tax Amount (In Words):</strong> ${numberToWords(totalTax)}</div>
+
+             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePrice.toFixed(2)} ${allocation.paymentType}</span></div>
+
+             <div class="sig-area">
+               <div class="sig-box">
+                 <div class="sig-line"></div>
+                 <div style="font-size: 10px; font-weight:bold;">Customer's Signature</div>
+               </div>
+               <div class="sig-box">
+                 <div class="sig-line"></div>
+                 <div style="font-size: 10px; font-weight:bold;">For Balaji Lodging<br>(Authorized Signatory)</div>
+               </div>
+             </div>
+
+             <div class="jurisdiction">SUBJECT TO PANDHARPUR JURISDICTION</div>
+             <div class="computer-gen">It is computer generated invoice,  hence does not require stamp and signature.</div>
+           </div>
+         </body>
+       </html>
+     `;
+
+     if (action === 'print') {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(invoiceHTML);
+        printWindow.document.close();
+        printWindow.onload = function() {
+           setTimeout(() => {
+             printWindow.print();
+           }, 500); 
+        };
+     } else {
+        const element = document.createElement('div');
+        element.innerHTML = invoiceHTML;
+        const opt = {
+           margin: 0,
+           filename: `Invoice_${invoiceNumber}.pdf`,
+           image: { type: 'jpeg', quality: 0.98 },
+           html2canvas: { scale: 2, useCORS: true },
+           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+     }
   };
 
   return (
@@ -436,15 +822,29 @@ const Customers = () => {
                       </td>
                       <td className="px-6 py-2.5 text-center">
                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => { setSelectedGuest(customer); setShowViewModal(true); }} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View History">
+                             <button onClick={() => { setSelectedGuest(customer); setShowViewModal(true); }} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View History">
                                <Eye size={16} />
-                            </button>
+                             </button>
 
+                             <button 
+                               onClick={() => handlePrintReport(customer, 'print')}
+                               className="p-1.5 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm group-hover:border-emerald-200"
+                               title="Print Statement"
+                             >
+                               <Printer size={16} />
+                             </button>
 
+                             <button 
+                               onClick={() => handlePrintReport(customer, 'download')}
+                               className="p-1.5 bg-white text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-100 rounded-lg transition-all shadow-sm group-hover:border-blue-200"
+                               title="Download PDF"
+                             >
+                               <Download size={16} />
+                             </button>
 
-                            <button onClick={() => handleDelete(customer.id)} className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
+                             <button onClick={() => handleDelete(customer.id)} className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
                                <Trash2 size={16} />
-                            </button>
+                             </button>
                          </div>
                       </td>
                     </tr>
@@ -519,7 +919,7 @@ const Customers = () => {
                      </div>
                      <p className="text-indigo-100 text-sm font-medium opacity-80">Guest ID: #{selectedGuest.id.slice(0,8).toUpperCase()}</p>
                   </div>
-                  <button onClick={() => setShowViewModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>
+                  <button onClick={() => setShowViewModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"><X size={24} /></button>
                </div>
                
                {/* Content */}
@@ -564,12 +964,43 @@ const Customers = () => {
                            </div>
                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><History size={20}/></div>
                         </div>
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
+                        <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col justify-between col-span-1 md:col-span-2 lg:col-span-1 h-full min-h-[100px]">
                            <div>
-                              <p className="text-[10px] uppercase font-bold text-gray-400">Total Spent</p>
-                              <p className="text-2xl font-black text-emerald-600">₹{allocations.filter(a => String(a.customerId) === String(selectedGuest.id)).reduce((sum, a) => sum + (Number(a.price) || 0), 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</p>
+                              <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Financial Summary</p>
+                              {(() => {
+                                 const stays = allocations.filter(a => String(a.customerId) === String(selectedGuest.id));
+                                 let totalAmt = 0;
+                                 let totalBase = 0;
+                                 let totalGst = 0;
+
+                                 stays.forEach(stay => {
+                                     const p = Number(stay.price) || 0;
+                                     const r = Number(stay.gstRate) || 0;
+                                     const base = p / (1 + r/100);
+                                     
+                                     totalAmt += p;
+                                     totalBase += base;
+                                     totalGst += (p - base); 
+                                 });
+
+                                 return (
+                                     <div className="flex flex-col gap-0.5">
+                                         <div className="flex justify-between items-baseline text-xs font-medium text-gray-500">
+                                             <span>Amount:</span>
+                                             <span>₹{totalBase.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                         </div>
+                                         <div className="flex justify-between items-baseline text-xs font-medium text-gray-500">
+                                             <span>GST:</span>
+                                             <span>₹{totalGst.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                         </div>
+                                         <div className="flex justify-between items-baseline pt-1 mt-1 border-t border-gray-100">
+                                             <span className="text-xs font-bold text-gray-700 uppercase">Total:</span>
+                                             <span className="text-xl font-black text-emerald-600">₹{totalAmt.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                         </div>
+                                     </div>
+                                 );
+                              })()}
                            </div>
-                           <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><UserCheck size={20}/></div>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                            <div>
@@ -615,26 +1046,41 @@ const Customers = () => {
                                                 <div>
                                                     <span className="text-sm font-bold text-gray-900 block">
                                                        {stay.roomSelections && stay.roomSelections.length > 0 ? (
-                                                          <span>
+                                                          <div className="flex flex-col gap-1">
                                                              {stay.roomSelections.map((s, i) => {
                                                                 const r = rooms.find(rm => String(rm.id) === String(s.roomId));
+                                                                const days = parseInt(s.stayDuration) || 1;
+                                                                const base = parseFloat(s.basePrice) || 0;
+                                                                const roomTotal = base * days;
+                                                                
                                                                 return (
-                                                                   <span key={i}>
-                                                                      Room {r?.roomNumber || 'Unknown'} 
-                                                                      <span className="text-gray-400 font-normal text-xs ml-1">({s.roomType || r?.type})</span>
-                                                                      {i < stay.roomSelections.length - 1 && ', '}
-                                                                   </span>
+                                                                   <div key={i} className="flex items-center gap-2 text-xs">
+                                                                      <span className="font-bold text-gray-800">Room {r?.roomNumber || 'Unknown'}</span>
+                                                                      <span className="text-gray-500">({s.roomType || r?.type})</span>
+                                                                      <span className="text-gray-400 text-[10px]">•</span>
+                                                                      <span className="font-medium text-emerald-600">₹{roomTotal.toLocaleString('en-IN')}</span>
+                                                                      <span className="text-gray-400 text-[10px]">({days} days)</span>
+                                                                   </div>
                                                                 );
                                                              })}
-                                                          </span>
+                                                          </div>
                                                        ) : (
-                                                          <span>Room {room?.roomNumber || 'Unknown'} <span className="text-gray-400 font-normal text-xs">({room?.type})</span></span>
+                                                          <div className="flex items-center gap-2 text-xs">
+                                                             <span className="font-bold text-gray-800">Room {room?.roomNumber || 'Unknown'}</span>
+                                                             <span className="text-gray-500">({room?.type})</span>
+                                                             {/* Fallback for old single-room structure if price details aren't in selections */}
+                                                          </div>
                                                        )}
                                                     </span>
                                                 </div>
                                                 <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${stay.status === 'Checked-Out' ? 'bg-gray-100 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
                                                    {stay.status === 'Checked-Out' ? 'Completed' : 'Active'}
                                                 </span>
+                                             </div>
+                                             
+                                             <div className="flex items-center gap-3 mb-2 text-xs font-medium text-gray-600">
+                                                  <span className="flex items-center gap-1"><Users size={12} className="text-gray-400"/> {stay.numberOfGuests || 1} Guests</span>
+                                                  {(stay.numberOfChildren > 0) && <span className="flex items-center gap-1 text-rose-500 font-bold"><Users size={12} className="text-rose-400"/> {stay.numberOfChildren} Children</span>}
                                              </div>
                                              
                                              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
