@@ -1424,28 +1424,28 @@ const Allocations = () => {
       {/* Table Container */}
       {!isAddBookingPage && (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
+         <div className="overflow-x-hidden overflow-y-auto flex-1 custom-scrollbar">
            <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-400 text-[10px] uppercase tracking-wider font-bold">
                  <tr>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Sr.No</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Room No</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Customer Name</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Contact No</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Occupancy</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Duration</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Duty Staff</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Pending Amount</th>
-                     <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3 text-center">Sr.No</th>
+                    <th className="px-4 py-3 text-center">Room No</th>
+                    <th className="px-4 py-3 text-center">Customer Name</th>
+                    <th className="px-4 py-3 text-center">Contact No</th>
+                    <th className="px-4 py-3 text-center">Occupancy</th>
+                    <th className="px-4 py-3 text-center">Duration</th>
+                    <th className="px-4 py-3 text-center">Duty Staff</th>
+                    <th className="px-4 py-3 text-center">Pending Amount</th>
+                     <th className="px-4 py-3 text-center">Actions</th>
                  </tr>
               </thead> 
               <tbody className="divide-y divide-gray-100">
                  {filteredAllocations.map((alloc, index) => (
                    <tr key={alloc.id} className="group hover:bg-gray-50/80 transition-all">
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <span className="text-xs font-bold text-gray-400">{(index + 1).toString().padStart(2, '0')}</span>
                      </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap overflow-visible">
+                      <td className="px-4 py-3 text-center overflow-visible">
                          {(() => {
                             const roomsList = (alloc.roomSelections 
                                ? alloc.roomSelections.map(s => getRoomNumber(s.roomId)) 
@@ -1488,16 +1488,16 @@ const Allocations = () => {
                             );
                          })()}
                       </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <div className="flex flex-col items-center">
                             <span className="text-sm font-bold text-gray-900">{getCustomerName(alloc.customerId)}</span>
                             <span className="text-[10px] text-gray-400 font-medium">Guest</span>
                         </div>
                      </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <span className="text-xs font-bold text-gray-700">{getCustomerPhone(alloc.customerId)}</span>
                      </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <div className="flex flex-col items-center">
                            <span className="text-xs font-black text-gray-800">{alloc.numberOfGuests} Guests</span>
                            {alloc.numberOfChildren > 0 && (
@@ -1507,7 +1507,7 @@ const Allocations = () => {
                            )}
                         </div>
                      </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <div className="space-y-1 flex flex-col items-center">
                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
                               In: {(() => {
@@ -1533,10 +1533,10 @@ const Allocations = () => {
                            </div>
                         </div>
                      </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <span className="text-xs font-semibold text-gray-700">{getEmployeeName(alloc.employeeId)}</span>
                      </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <span className="text-xs font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
                            ₹{(() => {
                               const gstRate = Number(alloc.gstRate || 0);
@@ -1552,7 +1552,7 @@ const Allocations = () => {
                            })()}
                         </span>
                      </td>
-                     <td className="px-4 py-3 text-center whitespace-nowrap">
+                     <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2 transition-opacity">
                            <button 
                              onClick={() => setViewingAllocation(alloc)}
@@ -1833,8 +1833,8 @@ const Allocations = () => {
 
 
                                   {/* Rows Table Header */}
-                                  <div className="overflow-x-auto custom-scrollbar pb-2">
-                                     <div className="min-w-[1000px]">
+                                  <div className="overflow-x-hidden custom-scrollbar pb-2">
+                                     <div className="w-full">
                                         <div className="grid grid-cols-12 gap-4 mb-3 px-3 py-2 bg-gray-50/50 rounded-lg border border-gray-100">
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room No</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
