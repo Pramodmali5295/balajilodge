@@ -409,31 +409,41 @@ const Customers = () => {
            if (!querySnapshot.empty) {
               invoiceNumber = querySnapshot.docs[0].data().invoiceNumber;
            } else {
-              let nextNum = 1;
               const d = new Date();
               const currentMonth = d.getMonth(); 
               const currentYear = d.getFullYear();
               const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
-              const fyString = `${startYear}/${String(startYear + 1).slice(-2)}`; 
+               const fyString = `${startYear}/${String(startYear + 1).slice(-2)}`; 
+               const baseSeq = (startYear === 2025) ? 8780 : 1;
+               let nextNum = baseSeq;
 
-              try {
-                  const lastInvQuery = query(collection(db, "invoices"), orderBy("createdAt", "desc"), limit(1));
-                  const lastInvSnap = await getDocs(lastInvQuery);
-                  if (!lastInvSnap.empty) {
-                     const lastData = lastInvSnap.docs[0].data();
-                     const lastId = String(lastData.invoiceNumber || '');
-                     
-                     if (lastId.startsWith(fyString)) {
-                         const parts = lastId.split('/');
-                         const lastSeq = parseInt(parts[parts.length - 1], 10);
-                         if (!isNaN(lastSeq)) {
-                             nextNum = lastSeq + 1;
-                         }
-                     }
-                  }
-              } catch (err) { console.warn("Sequence fetch failed", err); }
-              
-              invoiceNumber = `${fyString}/${nextNum}`;
+               try {
+                   const lastInvQuery = query(collection(db, "invoices"), orderBy("createdAt", "desc"), limit(1));
+                   const lastInvSnap = await getDocs(lastInvQuery);
+                   if (!lastInvSnap.empty) {
+                      const lastData = lastInvSnap.docs[0].data();
+                      const lastId = String(lastData.invoiceNumber || '');
+                      
+                      if (startYear === 2025) {
+                          const lastSeq = parseInt(lastId, 10);
+                          if (!isNaN(lastSeq)) {
+                             nextNum = Math.max(8780, lastSeq + 1);
+                          }
+                      } else if (lastId.startsWith(fyString)) {
+                          const parts = lastId.split('/');
+                          const lastSeq = parseInt(parts[parts.length - 1], 10);
+                          if (!isNaN(lastSeq)) {
+                              nextNum = Math.max(baseSeq, lastSeq + 1);
+                          }
+                      }
+                   }
+               } catch (err) { console.warn("Sequence fetch failed", err); }
+               
+               if (startYear === 2025) {
+                   invoiceNumber = String(nextNum);
+               } else {
+                   invoiceNumber = `${fyString}/${String(nextNum).padStart(4, '0')}`;
+               }
 
               await addDoc(collection(db, "invoices"), {
                  invoiceNumber: invoiceNumber,
@@ -572,21 +582,44 @@ const Customers = () => {
                 </tbody>
              </table>
 
-             <div class="total-section">
-               <div class="words-section">
-                 <div style="margin-bottom: 10px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePrice)}</div>
-                 <div><strong>Narration :</strong> ${allocation.narration || allocation.paymentType || '---'}</div>
-               </div>
-               <div class="calc-box">
-                 <div class="calc-row"><span>Other Rs.</span> <span>0.00</span></div>
-                 <div class="calc-row"><span>Subtotal Rs.</span> <span>${taxableValue.toFixed(2)}</span></div>
-                 <div class="calc-row"><span>SGST Rs.</span> <span>${sgstAmount.toFixed(2)}</span></div>
-                 <div class="calc-row"><span>CGST Rs.</span> <span>${cgstAmount.toFixed(2)}</span></div>
-                 <div class="calc-row" style="border-top: 1px solid #000; margin-top:2px; padding-top:2px; font-weight:bold; font-size:13px;">
-                   <span>Total Rs.</span> <span>${totalInclusivePrice.toFixed(2)}</span>
-                 </div>
-               </div>
-             </div>
+             <div class="total-section" style="display: flex; justify-content: flex-end; padding-top: 0px; margin-top: 5px;">
+                <div style="text-align: right; padding-right: 15px; display: flex; flex-direction: column; gap: 0; font-weight: bold;">
+                  <div style="height: 24px; display: flex; align-items: center; justify-content: flex-end;">Other</div>
+                  <div style="height: 24px; display: flex; align-items: center; justify-content: flex-end;">Subtotal</div>
+                  <div style="height: 24px; display: flex; align-items: center; justify-content: flex-end;">SGST</div>
+                  <div style="height: 24px; display: flex; align-items: center; justify-content: flex-end;">CGST</div>
+                  <div style="height: 24px; display: flex; align-items: center; justify-content: flex-end;">Total</div>
+                </div>
+                <div class="calc-box" style="width: 160px;">
+                  <table style="width: 100%; border-collapse: collapse; border: 1px solid #000;">
+                    <tr style="height: 24px;">
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: center; width: 30px;">Rs.</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">0.00</td>
+                    </tr>
+                    <tr style="height: 24px;">
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${taxableValue.toFixed(2)}</td>
+                    </tr>
+                    <tr style="height: 24px;">
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${sgstAmount.toFixed(2)}</td>
+                    </tr>
+                    <tr style="height: 24px;">
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${cgstAmount.toFixed(2)}</td>
+                    </tr>
+                    <tr style="height: 24px; font-weight: bold;">
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${totalInclusivePrice.toFixed(2)}</td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+
+              <div style="margin-top: 15px; margin-bottom: 20px;">
+                <div style="margin-bottom: 5px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePrice)}</div>
+                <div><strong>Narration :</strong> ${allocation.narration || allocation.paymentType || '---'}</div>
+              </div>
 
              <div style="margin-top: 25px; font-weight:bold; text-decoration: underline; margin-bottom: 5px;">GST Breakdown</div>
              <table class="gst-analysis">
