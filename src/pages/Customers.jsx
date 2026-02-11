@@ -538,7 +538,7 @@ const Customers = () => {
                       <span style="font-weight: bold;">Invoice No :</span> <span style="font-weight:bold;">${invoiceNumber}</span>
                       <span style="font-weight: bold;">Invoice Date :</span> <span>${(() => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })()}</span>
                       <span style="font-weight: bold;">Arrival :</span> <span>${formatBillDate(allocation.checkIn)}</span>
-                      <span style="font-weight: bold;">Departure :</span> <span>${formatBillDate(allocation.checkOut)}</span>
+                      <span style="font-weight: bold;">Departure :</span> <span>${formatBillDate(allocation.actualCheckOut || allocation.checkOut)}</span>
                       <span style="font-weight: bold;">Reg. No :</span> <span>${allocation.registrationNumber || '---'}</span>
                       <span style="font-weight: bold;">Booking ID :</span> <span>${allocation.externalBookingId || '0'}</span>
                    </div>
