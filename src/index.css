@@ -40,6 +40,9 @@ input[type=number] {
 }
 
 /* Custom Scrollbar */
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -55,6 +58,16 @@ input[type=number] {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #64748b;
+}
+/* Mobile-specific scrollbar styling */
+@media (max-width: 768px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+  }
 }
 
 @keyframes slideUp {

@@ -1457,8 +1457,8 @@ const Allocations = () => {
       {/* Table Container */}
       {!isAddBookingPage && (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-         <div className="overflow-x-hidden overflow-y-auto flex-1 custom-scrollbar">
-           <table className="w-full text-left border-collapse">
+         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
+           <table className="w-full min-w-[800px] text-left border-collapse">
               <thead className="bg-gray-50 sticky top-0 z-10 text-gray-400 text-[10px] uppercase tracking-wider font-bold">
                  <tr>
                     <th className="px-4 py-3 text-center">Sr.No</th>

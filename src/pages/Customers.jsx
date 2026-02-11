@@ -813,8 +813,8 @@ const Customers = () => {
 
       {/* Data Table Container */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-        <div className="overflow-x-hidden overflow-y-auto flex-1 custom-scrollbar">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
+          <table className="w-full min-w-[700px] text-left border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
               <tr>
                 <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center">Sr. No</th>

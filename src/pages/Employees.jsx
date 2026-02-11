@@ -261,19 +261,27 @@ const Employees = () => {
   }, [employees, searchTerm, statusFilter]);
 
   const downloadCSV = () => {
-    const headers = ['Sr. No', 'Name', 'Role', 'Status', 'Phone', 'ID Proof Type', 'Aadhar Number', 'Address', 'Assigned Rooms'];
-    const rows = filteredEmployees.map((emp, index) => [
-      (index + 1).toString().padStart(2, '0'),
-      emp.name,
-      emp.role,
-       emp.status || 'Active',
-       emp.phone,
-       emp.idProofType || 'Aadhar',
-       emp.aadharNumber || '',
-       emp.address || '',
-       emp.address || '',
-       employeeRoomMap[emp.id] ? employeeRoomMap[emp.id].join('; ') : ''
-     ]);
+    const headers = ['Sr. No', 'Name', 'Role', 'Status', 'Phone', 'ID Proof Type', 'ID Number', 'Joining Date', 'Address', 'Assigned Rooms'];
+    const rows = filteredEmployees.map((emp, index) => {
+      // Format joining date
+      const joiningDate = emp.joiningDate ? (() => {
+        const d = new Date(emp.joiningDate);
+        return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      })() : 'N/A';
+
+      return [
+        (index + 1).toString().padStart(2, '0'),
+        emp.name,
+        emp.role,
+        emp.status || 'Active',
+        emp.phone,
+        emp.idProofType || 'Aadhar',
+        emp.aadharNumber ? `\t${emp.aadharNumber}` : '', // Tab prefix prevents Excel auto-formatting
+        joiningDate,
+        emp.address || '',
+        employeeRoomMap[emp.id] ? employeeRoomMap[emp.id].join('; ') : ''
+      ];
+    });
     const csvContent = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -382,7 +390,7 @@ const Employees = () => {
       {/* Employee Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[700px] text-left border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                <tr>
                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider w-16 text-center whitespace-nowrap">Sr.No</th>
