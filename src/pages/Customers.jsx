@@ -414,7 +414,7 @@ const Customers = () => {
               const currentYear = d.getFullYear();
               const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
                const fyString = `${startYear}/${String(startYear + 1).slice(-2)}`; 
-               const baseSeq = (startYear === 2025) ? 8780 : 1;
+               const baseSeq = (startYear === 2025) ? 8781 : 1;
                let nextNum = baseSeq;
 
                try {
@@ -427,7 +427,7 @@ const Customers = () => {
                       if (startYear === 2025) {
                           const lastSeq = parseInt(lastId, 10);
                           if (!isNaN(lastSeq)) {
-                             nextNum = Math.max(8780, lastSeq + 1);
+                             nextNum = Math.max(8781, lastSeq + 1);
                           }
                       } else if (lastId.startsWith(fyString)) {
                           const parts = lastId.split('/');

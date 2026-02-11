@@ -992,7 +992,7 @@ const Allocations = () => {
               // Fiscal Year starts April 1st. If Jan-Mar, logic belongs to previous year start.
               const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
               const fyString = `${startYear}/${String(startYear + 1).slice(-2)}`; // e.g., 2025/26
-              const baseSeq = (startYear === 2025) ? 8780 : 1;
+              const baseSeq = (startYear === 2025) ? 8781 : 1;
               let nextNum = baseSeq;
 
               try {
@@ -1006,7 +1006,7 @@ const Allocations = () => {
                       if (startYear === 2025) {
                           const lastSeq = parseInt(lastId, 10);
                           if (!isNaN(lastSeq)) {
-                              nextNum = Math.max(8780, lastSeq + 1);
+                              nextNum = Math.max(8781, lastSeq + 1);
                           }
                       } else if (lastId.startsWith(fyString)) {
                           const parts = lastId.split('/');
