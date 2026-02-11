@@ -190,7 +190,8 @@ const Customers = () => {
       'Latest Visit Children',
       'Visits (In Range)',
       'Total Visits (Lifetime)',
-      'Range Total (Without GST)', 
+      'Range Room Amount (Without GST)', 
+      'Range Other Charges',
       'Range CGST (6%)', 
       'Range SGST (6%)', 
       'Range Total (With GST)', 
@@ -274,23 +275,30 @@ const Customers = () => {
        const bookingIds = [...new Set(rangeStays.map(s => s.externalBookingId).filter(Boolean))].join(' | ');
 
        // Calculate financial totals (In Range)
-       let totalRevenue = 0;
+       let totalRevenue = 0; // Base Room Amount
+       let totalOtherCharges = 0; // Other Charges
        let totalCGST = 0;
        let totalSGST = 0;
        let totalAmount = 0;
        let advanceAmount = 0;
 
        rangeStays.forEach(stay => {
-          const totalPrice = Number(stay.price) || 0; // This is total WITH GST
-          const gstRate = Number(stay.gstRate) || 12; // GST percentage
+          const totalPrice = Number(stay.price) || 0; // Total includes everything
+          const otherCharges = Number(stay.otherCharges) || 0;
+          const gstRate = Number(stay.gstRate) || 12;
           
-          // Calculate base amount: Total = Base × (1 + GST/100)
-          const basePrice = totalPrice / (1 + gstRate / 100);
-          const gstAmount = totalPrice - basePrice;
+          // Room Total (With GST) = Total - OtherCharges
+          const roomTotalInclusive = totalPrice - otherCharges;
+
+          // Room Base = Room Total / (1 + GST)
+          const roomBase = roomTotalInclusive / (1 + gstRate / 100);
+          
+          const gstAmount = roomTotalInclusive - roomBase;
           const cgst = gstAmount / 2;
           const sgst = gstAmount / 2;
           
-          totalRevenue += basePrice;
+          totalRevenue += roomBase;
+          totalOtherCharges += otherCharges;
           totalCGST += cgst;
           totalSGST += sgst;
           totalAmount += totalPrice;
@@ -329,6 +337,7 @@ const Customers = () => {
           visitCountInRange,
           lifetimeVisits,
           totalRevenue.toFixed(2),
+          totalOtherCharges.toFixed(2),
           totalCGST.toFixed(2),
           totalSGST.toFixed(2),
           totalAmount.toFixed(2),
@@ -396,7 +405,8 @@ const Customers = () => {
          };
      });
 
-     const totalInclusivePrice = taxableValue + totalTax;
+     const otherCharges = parseFloat(allocation.otherCharges) || 0;
+     const totalInclusivePrice = taxableValue + totalTax + otherCharges;
      const cgstAmount = totalTax / 2;
      const sgstAmount = totalTax / 2;
 
@@ -594,7 +604,7 @@ const Customers = () => {
                   <table style="width: 100%; border-collapse: collapse; border: 1px solid #000;">
                     <tr style="height: 24px;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center; width: 30px;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">0.00</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${otherCharges.toFixed(2)}</td>
                     </tr>
                     <tr style="height: 24px;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
