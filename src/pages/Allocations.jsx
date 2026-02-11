@@ -2129,9 +2129,7 @@ const Allocations = () => {
                                                  placeholder="0" 
                                               />
                                           </div>
-                                          <div className="flex items-end">
-                                              <p className="text-xs text-gray-500 italic pb-3">Note: Other charges are added without GST</p>
-                                          </div>
+
                                       </div>
 
                                       {/* Total Amount Display */}
