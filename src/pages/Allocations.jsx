@@ -1865,9 +1865,10 @@ const Allocations = () => {
                                   </div>
 
 
+
                                   {/* Rows Table Header */}
-                                  <div className="overflow-x-hidden custom-scrollbar pb-2">
-                                     <div className="w-full">
+                                  <div className="overflow-x-auto md:overflow-x-hidden custom-scrollbar pb-2">
+                                     <div className="min-w-[800px]">
                                         <div className="grid grid-cols-12 gap-4 mb-3 px-3 py-2 bg-gray-50/50 rounded-lg border border-gray-100">
                                            <div className="col-span-2 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room No</div>
                                            <div className="col-span-1 text-xs font-bold text-gray-500 uppercase tracking-wide text-center">Room Type</div>
