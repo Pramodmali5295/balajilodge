@@ -1012,25 +1012,51 @@ const Customers = () => {
                               <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Financial Summary</p>
                               {(() => {
                                  const stays = allocations.filter(a => String(a.customerId) === String(selectedGuest.id));
-                                 let totalAmt = 0;
-                                 let totalBase = 0;
+                                 let totalRoomAmount = 0;
+                                 let totalOtherAmount = 0;
                                  let totalGst = 0;
+                                 let grandTotal = 0;
 
                                  stays.forEach(stay => {
-                                     const p = Number(stay.price) || 0;
-                                     const r = Number(stay.gstRate) || 0;
-                                     const base = p / (1 + r/100);
+                                     // 1. Calculate Room Amount
+                                     let stayRoomAmount = 0;
+                                     if (stay.roomSelections && stay.roomSelections.length > 0) {
+                                         stay.roomSelections.forEach(s => {
+                                              const base = Number(s.basePrice) || 0;
+                                              const days = Number(s.stayDuration) || 1;
+                                              stayRoomAmount += base * days;
+                                         });
+                                     } else {
+                                          const base = Number(stay.basePrice) || 0;
+                                          const days = Number(stay.stayDuration) || 1;
+                                          stayRoomAmount = base * days;
+                                     }
+
+                                     // 2. Get Other Charges
+                                     const stayOther = Number(stay.otherCharges) || 0;
                                      
-                                     totalAmt += p;
-                                     totalBase += base;
-                                     totalGst += (p - base); 
+                                     // 3. Calculate GST (Room Amount only)
+                                     const rate = Number(stay.gstRate) || 0;
+                                     const stayGst = stayRoomAmount * (rate / 100);
+
+                                     // 4. Stay Total
+                                     const stayTotal = stayRoomAmount + stayOther + stayGst;
+
+                                     totalRoomAmount += stayRoomAmount;
+                                     totalOtherAmount += stayOther;
+                                     totalGst += stayGst;
+                                     grandTotal += stayTotal;
                                  });
 
                                  return (
                                      <div className="flex flex-col gap-0.5">
                                          <div className="flex justify-between items-baseline text-xs font-medium text-gray-500">
-                                             <span>Amount:</span>
-                                             <span>₹{totalBase.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                             <span>Room Amount:</span>
+                                             <span>₹{totalRoomAmount.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                         </div>
+                                         <div className="flex justify-between items-baseline text-xs font-medium text-gray-500">
+                                             <span>Other Amount:</span>
+                                             <span>₹{totalOtherAmount.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
                                          </div>
                                          <div className="flex justify-between items-baseline text-xs font-medium text-gray-500">
                                              <span>GST:</span>
@@ -1038,7 +1064,7 @@ const Customers = () => {
                                          </div>
                                          <div className="flex justify-between items-baseline pt-1 mt-1 border-t border-gray-100">
                                              <span className="text-xs font-bold text-gray-700 uppercase">Total:</span>
-                                             <span className="text-xl font-black text-emerald-600">₹{totalAmt.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                             <span className="text-xl font-black text-emerald-600">₹{grandTotal.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
                                          </div>
                                      </div>
                                  );
@@ -1143,7 +1169,7 @@ const Customers = () => {
                                                     <span className="text-[10px] text-gray-400 uppercase font-bold block">Check Out</span>
                                                     <span className="font-bold text-gray-800">{(() => {
                                                        const d = stay.actualCheckOut ? new Date(stay.actualCheckOut) : new Date(stay.checkOut);
-                                                       return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')} HRS`;
+                                                     return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours() % 12 || 12).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
                                                     })()}</span>
                                                  </div>
                                              </div>

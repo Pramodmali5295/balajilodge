@@ -50,7 +50,7 @@ const CheckoutNotifier = () => {
                    <div className="flex items-center gap-2">
                       <CalendarClock size={14} className="text-gray-400" />
                       <span className="text-xs font-medium text-gray-500">
-                        Scheduled: {new Date(alert.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        Scheduled: {new Date(alert.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                       </span>
                    </div>
                 </div>
