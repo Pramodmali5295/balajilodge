@@ -1189,11 +1189,48 @@ const Customers = () => {
 
                                               {(stay.price) && (
                                                 <div className="flex flex-col gap-1 pt-2 border-t border-gray-100 text-xs text-gray-600">
-                                                   <div className="flex justify-between">
-                                                      <span>Total: <span className="font-bold text-indigo-600">₹{((Number(stay.price)||0)).toLocaleString('en-IN')}</span></span>
-                                                      <span>Paid: <span className="font-bold text-emerald-600">₹{(Number(stay.advanceAmount)||0).toLocaleString('en-IN')}</span></span>
-                                                   </div>
-                                                   <div className="flex justify-between text-[10px] text-gray-400">
+                                                   {(() => {
+                                                        // 1. Calculate Room Amount
+                                                        let stayRoomAmount = 0;
+                                                        if (stay.roomSelections && stay.roomSelections.length > 0) {
+                                                            stay.roomSelections.forEach(s => {
+                                                                    const base = Number(s.basePrice) || 0;
+                                                                    const days = Number(s.stayDuration) || 1;
+                                                                    stayRoomAmount += base * days;
+                                                            });
+                                                        } else {
+                                                            const base = Number(stay.basePrice) || 0;
+                                                            const days = Number(stay.stayDuration) || 1;
+                                                            stayRoomAmount = base * days;
+                                                        }
+
+                                                        // 2. Get Other Charges
+                                                        const stayOther = Number(stay.otherCharges) || 0;
+                                                        
+                                                        // 3. Calculate GST (Room Amount only)
+                                                        const rate = Number(stay.gstRate) || 0;
+                                                        const stayGst = stayRoomAmount * (rate / 100);
+
+                                                        // 4. Stay Total
+                                                        const stayTotal = stayRoomAmount + stayOther + stayGst;
+
+                                                        return (
+                                                            <>
+                                                                <div className="flex justify-between">
+                                                                   <span>Room: <span className="font-bold">₹{stayRoomAmount.toLocaleString('en-IN')}</span></span>
+                                                                   <span>Other: <span className="font-bold">₹{stayOther.toLocaleString('en-IN')}</span></span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                   <span>GST: <span className="font-bold">₹{stayGst.toLocaleString('en-IN')}</span></span>
+                                                                   <span>Total: <span className="font-bold text-indigo-600">₹{stayTotal.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span></span>
+                                                                </div>
+                                                                <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
+                                                                    <span>Paid: <span className="font-bold text-emerald-600">₹{(Number(stay.advanceAmount)||0).toLocaleString('en-IN')}</span></span>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                   })()}
+                                                   <div className="flex justify-between text-[10px] text-gray-400 mt-1">
                                                       <span>via {stay.paymentType || 'Cash'}</span>
                                                       {stay.narration && <span className="italic truncate max-w-[150px]" title={stay.narration}>{stay.narration}</span>}
                                                    </div>
