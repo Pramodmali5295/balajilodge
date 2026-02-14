@@ -389,7 +389,7 @@ const Rooms = () => {
                    {isSubmitting ? 'Saving...' : (
                      <span className="flex items-center gap-2">
                        {editingId ? <Edit3 size={18} /> : <Plus size={18} />}
-                       <span>{editingId ? 'Update Room' : 'Create Room'}</span>
+                       <span>{editingId ? 'Update Room' : 'Add Room'}</span>
                      </span>
                    )}
                  </button>

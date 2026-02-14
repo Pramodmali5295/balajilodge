@@ -635,6 +635,18 @@ const Allocations = () => {
         alert("Number of persons and days must be at least 1.");
         return;
     }
+    if (!formData.checkIn) {
+        alert("Please select the Arrival date and time.");
+        return;
+    }
+    if (!formData.checkOut) {
+        alert("Please select the Departure date and time.");
+        return;
+    }
+    if (new Date(formData.checkOut) <= new Date(formData.checkIn)) {
+        alert("Departure date/time must be after Arrival date/time.");
+        return;
+    }
     // -------------------
 
     setIsSubmitting(true);
@@ -712,7 +724,7 @@ const Allocations = () => {
       const remainingVal = Math.round(finalPrice - advanceVal);
 
       const checkInDate = new Date(formData.checkIn);
-      const checkOutDate = new Date(checkInDate.getTime() + maxDuration * 24 * 60 * 60 * 1000);
+      const checkOutDate = new Date(formData.checkOut);
 
       if (editingAllocation) {
           // Update Existing Group Allocation
@@ -733,7 +745,7 @@ const Allocations = () => {
              roomId: selectionsForDb[0].roomId, // Backward compatibility
              employeeId: formData.employeeId,
              checkIn: formData.checkIn,
-             checkOut: checkOutDate.toISOString(),
+             checkOut: formData.checkOut,
              numberOfGuests: totalGuests,
              numberOfChildren: totalChildren,
              advanceAmount: advanceVal,
@@ -748,7 +760,8 @@ const Allocations = () => {
              otherCharges: otherChargesVal,
              basePrice: totalBasePrice / maxDuration, // Legacy average
              gstRate: gstRate,
-             price: finalPrice
+             price: finalPrice,
+             actualCheckOut: editingAllocation.status === 'Checked-Out' ? formData.checkOut : (editingAllocation.actualCheckOut || '')
           });
           
           if (editingAllocation.status !== 'Checked-Out') {
@@ -765,7 +778,7 @@ const Allocations = () => {
              roomSelections: selectionsForDb,
              employeeId: formData.employeeId,
              checkIn: formData.checkIn,
-             checkOut: checkOutDate.toISOString(),
+             checkOut: formData.checkOut,
              numberOfGuests: totalGuests,
              numberOfChildren: totalChildren,
              advanceAmount: advanceVal,
@@ -780,7 +793,8 @@ const Allocations = () => {
              otherCharges: otherChargesVal,
              basePrice: totalBasePrice / maxDuration,
              gstRate: gstRate,
-             price: finalPrice
+             price: finalPrice,
+             actualCheckOut: editingAllocation.status === 'Checked-Out' ? formData.checkOut : (editingAllocation.actualCheckOut || '')
           };
 
           // Construct updated customer object to ensure invoice has latest data
@@ -810,7 +824,7 @@ const Allocations = () => {
              roomId: selectionsForDb[0].roomId, // Legacy compatibility
              employeeId: formData.employeeId,
              checkIn: formData.checkIn,
-             checkOut: checkOutDate.toISOString(),
+             checkOut: formData.checkOut,
              numberOfGuests: totalGuests,
              numberOfChildren: totalChildren,
              basePrice: totalBasePrice / maxDuration, 
@@ -1404,7 +1418,7 @@ const Allocations = () => {
                                 onFocus={() => setDateFilterFocus(prev => ({ ...prev, start: true }))}
                                 onBlur={() => setDateFilterFocus(prev => ({ ...prev, start: false }))}
                                 className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer"
-                                title="Select Start Date"
+                                onClick={(e) => e.target.showPicker?.()} title="Select Start Date"
                                 placeholder="DD/MM/YYYY"
                              />
                          </div>
@@ -1420,7 +1434,7 @@ const Allocations = () => {
                                 onFocus={() => setDateFilterFocus(prev => ({ ...prev, end: true }))}
                                 onBlur={() => setDateFilterFocus(prev => ({ ...prev, end: false }))}
                                 className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer"
-                                title="Select End Date"
+                                onClick={(e) => e.target.showPicker?.()} title="Select End Date"
                                 placeholder="DD/MM/YYYY"
                              />
                          </div>
@@ -1594,10 +1608,10 @@ const Allocations = () => {
                         <div className="flex items-center justify-center gap-2 transition-opacity">
                            <button 
                              onClick={() => setViewingAllocation(alloc)}
-                             className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm"
+                             className="p-2 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm"
                              title="View Booking Details"
                            >
-                              <Eye size={16} />
+                              <Eye size={20} />
                            </button>
                            
                            <button 
@@ -1616,7 +1630,7 @@ const Allocations = () => {
                                    roomIds: [alloc.roomId],
                                    employeeId: alloc.employeeId || '',
                                    checkIn: alloc.checkIn?.slice(0, 16) || '',
-                                   checkOut: alloc.checkOut?.slice(0, 16) || '',
+                                   checkOut: (alloc.status === 'Checked-Out' && alloc.actualCheckOut) ? alloc.actualCheckOut.slice(0, 16) : (alloc.checkOut?.slice(0, 16) || ''),
                                    advanceAmount: alloc.advanceAmount || 0,
                                    paymentType: alloc.paymentType || 'Cash',
                                    narration: alloc.narration || '',
@@ -1644,44 +1658,44 @@ const Allocations = () => {
                                 });
                                 setShowCheckInModal(true);
                              }}
-                             className="p-1.5 bg-white text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-100 rounded-lg transition-all shadow-sm"
+                             className="p-2 bg-white text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-100 rounded-lg transition-all shadow-sm"
                              title="Edit Booking"
                            >
-                              <Edit3 size={16} />
+                              <Edit3 size={20} />
                            </button>
 
                            {statusTab === 'Live' ? (
                               <>
                                 <button 
                                    onClick={() => handleCheckOut(alloc.id)}
-                                  className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
+                                  className="p-2 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
                                   title="Check Out Guest"
                                 >
-                                   <LogOut size={16} />
+                                   <LogOut size={20} />
                                 </button>
                                  <button 
                                     onClick={() => handlePrintBill(alloc, 'print')}
-                                    className="p-1.5 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm"
+                                    className="p-2 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm"
                                     title="Print Invoice"
                                   >
-                                     <Printer size={16} />
+                                     <Printer size={24} />
                                   </button>
                               </>
                            ) : (
                               <>
                                 <button 
                                   onClick={() => handlePrintBill(alloc, 'print')}
-                                  className="p-1.5 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm"
+                                  className="p-2 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm"
                                   title="Print Invoice"
                                 >
-                                   <Printer size={16} />
+                                   <Printer size={24} />
                                 </button>
                                 <button 
                                   onClick={() => handleDeleteAllocation(alloc.id)}
-                                  className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
+                                  className="p-2 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm"
                                   title="Delete Record"
                                 >
-                                   <Trash2 size={16} />
+                                   <Trash2 size={20} />
                                 </button>
                               </>
                            )}
@@ -1852,7 +1866,7 @@ const Allocations = () => {
                                             onFocus={() => setFocusedFields(prev => ({ ...prev, checkIn: true }))}
                                             onBlur={() => setFocusedFields(prev => ({ ...prev, checkIn: false }))}
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
-                                            placeholder="Select Arrival Date"
+                                            onClick={(e) => e.target.showPicker?.()} placeholder="Select Arrival Date"
                                          />
                                       </div>
                                       <div>
@@ -1865,7 +1879,7 @@ const Allocations = () => {
                                             onFocus={() => setFocusedFields(prev => ({ ...prev, checkOut: true }))}
                                             onBlur={() => setFocusedFields(prev => ({ ...prev, checkOut: false }))}
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-base transition-all" 
-                                            placeholder="Select Departure Date"
+                                            onClick={(e) => e.target.showPicker?.()} placeholder="Select Departure Date"
                                          />
                                       </div>
                                   </div>
@@ -2267,7 +2281,7 @@ const Allocations = () => {
          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => setViewingAllocation(null)} />
             
-            <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-scale-in">
+            <div className="relative bg-white w-full max-w-4xl md:rounded-3xl rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] md:max-h-[90vh] flex flex-col animate-scale-in">
                {/* Header */}
                <div className="px-8 py-6 bg-gradient-to-r from-indigo-700 to-indigo-600 text-white flex justify-between items-center shrink-0">
                   <div>
@@ -2285,22 +2299,22 @@ const Allocations = () => {
                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"
                          title="Print Bill"
                       >
-                         <Printer size={20} />
+                         <Printer size={24} />
                       </button>
                       <button 
                          onClick={() => handlePrintBill(viewingAllocation, 'download')}
                          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"
                          title="Download PDF"
                       >
-                         <Download size={20} />
+                         <Download size={24} />
                       </button>
                       <button onClick={() => setViewingAllocation(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>
                    </div>
                </div>
                
-               {/* Content - Desktop Grid */}
-               <div className="flex-1 p-0">
-                  <div className="p-5 flex flex-col gap-4">
+                {/* Content - Scrollable for Mobile */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                   <div className="p-4 md:p-6 flex flex-col gap-5">
                      
                      {/* Row 1: Guest & ID (Compact) */}
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2330,82 +2344,90 @@ const Allocations = () => {
                      </div>
 
                      {/* Row 2: Stay Information (Ultra Compact) */}
-                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                           <Clock size={12} className="text-indigo-500" />
-                           <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">Stay Details</span>
-                        </div>
-                        <div className="p-3 grid grid-cols-2 sm:grid-cols-6 gap-3">
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Room(s)</p>
-                              <p className="text-sm font-black text-gray-900">
-                                 {viewingAllocation.roomSelections 
-                                    ? viewingAllocation.roomSelections.map(s => getRoomNumber(s.roomId)).join(', ') 
-                                    : getRoomNumber(viewingAllocation.roomId)}
-                              </p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Guests</p>
-                              <p className="text-sm font-black text-gray-900">{viewingAllocation.numberOfGuests || 1}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Children</p>
-                              <p className="text-sm font-black text-gray-900">{viewingAllocation.numberOfChildren || 0}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Staff</p>
-                              <p className="text-xs font-bold text-gray-800 truncate" title={getEmployeeName(viewingAllocation.employeeId)}>{getEmployeeName(viewingAllocation.employeeId).split(' ')[0]}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Source</p>
-                              <p className="text-xs font-bold text-gray-800 truncate">{viewingAllocation.bookingPlatform || 'Counter'}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-emerald-600 font-bold uppercase">Check-In</p>
-                              <p className="text-xs font-bold text-gray-800">{(() => {
-                                 const d = new Date(viewingAllocation.checkIn);
-                                 let hrs = d.getHours();
-                                 const mins = String(d.getMinutes()).padStart(2, '0');
-                                 const ampm = hrs >= 12 ? 'PM' : 'AM';
-                                 hrs = hrs % 12;
-                                 hrs = hrs ? hrs : 12;
-                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
-                              })()}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-rose-600 font-bold uppercase">Check-Out</p>
-                              <p className="text-xs font-bold text-gray-800">{(() => {
-                                 const d = viewingAllocation.actualCheckOut ? new Date(viewingAllocation.actualCheckOut) : new Date(viewingAllocation.checkOut);
-                                 let hrs = d.getHours();
-                                 const mins = String(d.getMinutes()).padStart(2, '0');
-                                 const ampm = hrs >= 12 ? 'PM' : 'AM';
-                                 hrs = hrs % 12;
-                                 hrs = hrs ? hrs : 12;
-                                 return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
-                              })()}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Reg Type/No</p>
-                              <p className="text-xs font-bold text-gray-800 truncate">{viewingAllocation.registrationNumber || '---'}</p>
-                           </div>
-                           <div>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Booking ID</p>
-                              <p className="text-xs font-bold text-gray-800 truncate">{viewingAllocation.externalBookingId || '---'}</p>
-                           </div>
-                           <div className="bg-rose-50 p-1.5 rounded-lg border border-rose-100 flex flex-col justify-center">
-                              <p className="text-[9px] text-rose-600 font-black uppercase leading-none mb-1">Remaining</p>
-                              <p className="text-sm font-black text-rose-600 leading-none">
-                                 ₹{(Number(viewingAllocation.remainingAmount) || (
-                                    (() => {
-                                       const total = Number(viewingAllocation.price || 0);
-                                       const paid = Number(viewingAllocation.advanceAmount || 0);
-                                       return Math.max(0, Math.round(total - paid));
-                                    })()
-                                 )).toLocaleString('en-IN')}
-                              </p>
-                           </div>
-                        </div>
-                     </div>
+                      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                         <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                            <Clock size={12} className="text-indigo-500" />
+                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">Stay & Booking Details</span>
+                         </div>
+                         <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4">
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Room(s)</p>
+                               <p className="text-sm font-black text-indigo-600 mt-1">
+                                  {viewingAllocation.roomSelections 
+                                     ? viewingAllocation.roomSelections.map(s => getRoomNumber(s.roomId)).join(', ') 
+                                     : getRoomNumber(viewingAllocation.roomId)}
+                               </p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Occupancy</p>
+                               <p className="text-sm font-black text-gray-900 mt-1">{viewingAllocation.numberOfGuests || 1} Adult, {viewingAllocation.numberOfChildren || 0} Child</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Booking Source</p>
+                               <p className="text-sm font-bold text-gray-800 mt-1">{viewingAllocation.bookingPlatform || 'Counter'}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Reg No</p>
+                               <p className="text-sm font-black text-gray-800 mt-1">{viewingAllocation.registrationNumber || '---'}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Booking Ref ID</p>
+                               <p className="text-sm font-medium text-gray-800 mt-1 truncate" title={viewingAllocation.externalBookingId}>{viewingAllocation.externalBookingId || '---'}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-emerald-600 font-black uppercase tracking-tight">Arrival</p>
+                               <p className="text-sm font-bold text-gray-900 mt-1">{(() => {
+                                  const d = new Date(viewingAllocation.checkIn);
+                                  let hrs = d.getHours();
+                                  const mins = String(d.getMinutes()).padStart(2, '0');
+                                  const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                  hrs = hrs % 12;
+                                  hrs = hrs ? hrs : 12;
+                                  return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
+                               })()}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-rose-600 font-black uppercase tracking-tight">Departure</p>
+                               <p className="text-sm font-bold text-gray-900 mt-1">{(() => {
+                                  const d = viewingAllocation.actualCheckOut ? new Date(viewingAllocation.actualCheckOut) : new Date(viewingAllocation.checkOut);
+                                  let hrs = d.getHours();
+                                  const mins = String(d.getMinutes()).padStart(2, '0');
+                                  const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                  hrs = hrs % 12;
+                                  hrs = hrs ? hrs : 12;
+                                  return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
+                               })()}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Stay Duration</p>
+                               <p className="text-sm font-black text-gray-900 mt-1">{viewingAllocation.stayDuration || 1} Night(s)</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Duty Staff</p>
+                               <p className="text-sm font-bold text-gray-800 mt-1">{getEmployeeName(viewingAllocation.employeeId)}</p>
+                            </div>
+                            <div className="bg-rose-50 p-2 rounded-lg border border-rose-100 flex flex-col justify-center">
+                               <p className="text-[9px] text-rose-600 font-black uppercase leading-none mb-1">Balance Due</p>
+                               <p className="text-lg font-black text-rose-600 leading-none">
+                                  ₹{(Number(viewingAllocation.remainingAmount) || (
+                                     (() => {
+                                        const total = Number(viewingAllocation.price || 0);
+                                        const paid = Number(viewingAllocation.advanceAmount || 0);
+                                        return Math.max(0, Math.round(total - paid));
+                                     })()
+                                  )).toLocaleString('en-IN')}
+                               </p>
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Narration Section */}
+                      {viewingAllocation.narration && (
+                         <div className="bg-amber-50 rounded-xl border border-amber-100 p-4">
+                            <p className="text-[10px] font-black text-amber-600 uppercase tracking-wider mb-2">Special Instructions / Narration</p>
+                            <p className="text-sm text-amber-800 font-medium whitespace-pre-wrap">{viewingAllocation.narration}</p>
+                         </div>
+                      )}
                      
                      {/* Row 3: Financials (Compact Table) */}
                      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -2590,4 +2612,5 @@ const Allocations = () => {
 };
 
 export default Allocations;
+
 

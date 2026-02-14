@@ -62,11 +62,7 @@ const Customers = () => {
     name: '', phone: '', idProof: '', address: '', customerType: 'Regular'
   });
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [dateFilterFocus, setDateFilterFocus] = useState({ start: false, end: false });
-  const formatDateForFilter = (dateStr) => {
-     if (!dateStr) return '';
-     return dateStr.split('-').reverse().join('/');
-  };
+
 
   // Stats Calculation
   const stats = useMemo(() => {
@@ -342,18 +338,23 @@ const Customers = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handlePrintReport = async (customer, action) => {
-    // Find Latest Allocation
-    const custStays = allocations
-        .filter(a => String(a.customerId) === String(customer.id))
-        .sort((a,b) => new Date(b.checkIn) - new Date(a.checkIn));
+  const handlePrintReport = async (customer, action, specificAllocation = null) => {
+    let allocation;
+    
+    if (specificAllocation) {
+        allocation = specificAllocation;
+    } else {
+        // Find Latest Allocation
+        const custStays = allocations
+            .filter(a => String(a.customerId) === String(customer.id))
+            .sort((a,b) => new Date(b.checkIn) - new Date(a.checkIn));
 
-    if (custStays.length === 0) {
-        alert("No booking history found for this customer.");
-        return;
+        if (custStays.length === 0) {
+            alert("No booking history found for this customer.");
+            return;
+        }
+        allocation = custStays[0];
     }
-
-    const allocation = custStays[0]; // Use Latest
     const cust = customer; // Alias
     const employee = employees.find(e => String(e.id) === String(allocation.employeeId));
 
@@ -717,7 +718,7 @@ const Customers = () => {
             onClick={exportToCSV}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow-sm transition-all"
           >
-            <Download size={16} /> Export CSV
+            <Download size={20} /> Export CSV
           </button>
         </div>
 
@@ -769,16 +770,15 @@ const Customers = () => {
           </div>
 
           {/* Date Filters */}
-          <div className="flex items-center gap-3 w-full lg:w-auto bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto bg-gray-50 p-1.5 rounded-lg border border-gray-200">
                <div className="flex items-center gap-2 px-3 py-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">From</span>
                   <input 
-                    type={dateFilterFocus.start ? 'date' : 'text'}
-                    value={dateFilterFocus.start ? dateRange.start : formatDateForFilter(dateRange.start)}
+                    type="date"
+                    value={dateRange.start}
                     onChange={(e) => setDateRange(prev => ({...prev, start: e.target.value}))} 
-                    onFocus={() => setDateFilterFocus(prev => ({ ...prev, start: true }))}
-                    onBlur={() => setDateFilterFocus(prev => ({ ...prev, start: false }))}
-                    className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer" 
+                    className="bg-transparent text-sm font-medium text-gray-700 outline-none w-32 cursor-pointer" 
+                    onClick={(e) => e.target.showPicker?.()}
                     placeholder="DD/MM/YYYY"
                   />
                </div>
@@ -786,12 +786,11 @@ const Customers = () => {
                <div className="flex items-center gap-2 px-3 py-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">To</span>
                   <input 
-                    type={dateFilterFocus.end ? 'date' : 'text'}
-                    value={dateFilterFocus.end ? dateRange.end : formatDateForFilter(dateRange.end)}
+                    type="date"
+                    value={dateRange.end}
                     onChange={(e) => setDateRange(prev => ({...prev, end: e.target.value}))} 
-                    onFocus={() => setDateFilterFocus(prev => ({ ...prev, end: true }))}
-                    onBlur={() => setDateFilterFocus(prev => ({ ...prev, end: false }))}
-                    className="bg-transparent text-sm font-medium text-gray-700 outline-none w-28 cursor-pointer" 
+                    className="bg-transparent text-sm font-medium text-gray-700 outline-none w-32 cursor-pointer" 
+                    onClick={(e) => e.target.showPicker?.()}
                     placeholder="DD/MM/YYYY"
                   />
                </div>
@@ -848,28 +847,28 @@ const Customers = () => {
                       </td>
                       <td className="px-6 py-2.5 text-center">
                          <div className="flex items-center justify-center gap-2">
-                             <button onClick={() => { setSelectedGuest(customer); setShowViewModal(true); }} className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View History">
-                               <Eye size={16} />
+                             <button onClick={() => { setSelectedGuest(customer); setShowViewModal(true); }} className="p-2 bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 rounded-lg transition-all shadow-sm group-hover:border-indigo-200" title="View History">
+                                <Eye size={20} />
                              </button>
 
                              <button 
                                onClick={() => handlePrintReport(customer, 'print')}
-                               className="p-1.5 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm group-hover:border-emerald-200"
+                               className="p-2 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 rounded-lg transition-all shadow-sm group-hover:border-emerald-200"
                                title="Print Statement"
                              >
-                               <Printer size={16} />
+                                <Printer size={20} />
                              </button>
 
                              <button 
                                onClick={() => handlePrintReport(customer, 'download')}
-                               className="p-1.5 bg-white text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-100 rounded-lg transition-all shadow-sm group-hover:border-blue-200"
+                               className="p-2 bg-white text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-100 rounded-lg transition-all shadow-sm group-hover:border-blue-200"
                                title="Download PDF"
                              >
-                               <Download size={16} />
+                                <Download size={20} />
                              </button>
 
-                             <button onClick={() => handleDelete(customer.id)} className="p-1.5 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
-                               <Trash2 size={16} />
+                             <button onClick={() => handleDelete(customer.id)} className="p-2 bg-white text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-lg transition-all shadow-sm group-hover:border-rose-200" title="Delete Record">
+                                <Trash2 size={20} />
                              </button>
                          </div>
                       </td>
@@ -929,7 +928,7 @@ const Customers = () => {
          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => setShowViewModal(false)} />
             
-            <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-fade-in-up">
+            <div className="relative bg-white w-full max-w-4xl md:rounded-3xl rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] md:max-h-[90vh] flex flex-col animate-fade-in-up">
                {/* Header */}
                <div className="px-8 py-6 bg-gradient-to-r from-indigo-700 to-indigo-600 text-white flex justify-between items-center shrink-0">
                   <div>
@@ -945,7 +944,7 @@ const Customers = () => {
                      </div>
                      <p className="text-indigo-100 text-sm font-medium opacity-80">Guest ID: #{selectedGuest.id.slice(0,8).toUpperCase()}</p>
                   </div>
-                  <button onClick={() => setShowViewModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"><X size={24} /></button>
+                  <div className="flex items-center gap-2"><button onClick={() => handlePrintReport(selectedGuest, 'print')} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white" title="Print Latest Bill"><Printer size={20} /></button><button onClick={() => handlePrintReport(selectedGuest, 'download')} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white" title="Download Latest PDF"><Download size={20} /></button><button onClick={() => setShowViewModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"><X size={24} /></button></div>
                </div>
                
                {/* Content */}
@@ -958,10 +957,10 @@ const Customers = () => {
                             <div className="w-12 h-12 bg-indigo-100/50 rounded-full flex items-center justify-center text-indigo-600 shrink-0">
                                  <Phone size={20} />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contact Details</h3>
-                                <p className="text-sm font-black text-gray-900">{selectedGuest.phone || 'N/A'}</p>
-                                <p className="text-xs font-medium text-gray-500 truncate" title={selectedGuest.address}>{selectedGuest.address || 'Address not provided'}</p>
+                                <p className="text-sm font-black text-gray-900 mt-0.5">{selectedGuest.phone || 'N/A'}</p>
+                                <p className="text-xs font-medium text-gray-600 leading-relaxed mt-1 whitespace-pre-wrap">{selectedGuest.address || 'Address not provided'}</p>
                             </div>
                         </div>
 
@@ -1134,19 +1133,34 @@ const Customers = () => {
                                                           <div className="flex items-center gap-2 text-xs">
                                                              <span className="font-bold text-gray-800">Room {room?.roomNumber || 'Unknown'}</span>
                                                              <span className="text-gray-500">({room?.type})</span>
-                                                             {/* Fallback for old single-room structure if price details aren't in selections */}
                                                           </div>
                                                        )}
                                                     </span>
                                                 </div>
-                                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${stay.status === 'Checked-Out' ? 'bg-gray-100 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
-                                                   {stay.status === 'Checked-Out' ? 'Completed' : 'Active'}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                   <button 
+                                                      onClick={() => handlePrintReport(selectedGuest, 'print', stay)}
+                                                      className="p-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg transition-all border border-indigo-100 flex items-center gap-1 text-[10px] font-bold"
+                                                      title="Print this bill"
+                                                   >
+                                                      <Printer size={12} /> Bill
+                                                   </button>
+                                                   <button 
+                                                      onClick={() => handlePrintReport(selectedGuest, 'download', stay)}
+                                                      className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-all border border-blue-100 flex items-center gap-1 text-[10px] font-bold"
+                                                      title="Download this PDF"
+                                                   >
+                                                      <Download size={12} /> PDF
+                                                   </button>
+                                                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${stay.status === 'Checked-Out' ? 'bg-gray-100 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                      {stay.status === 'Checked-Out' ? 'Completed' : 'Active'}
+                                                   </span>
+                                                </div>
                                              </div>
                                              
                                              <div className="flex items-center gap-3 mb-2 text-xs font-medium text-gray-600">
                                                   <span className="flex items-center gap-1"><Users size={12} className="text-gray-400"/> {stay.numberOfGuests || 1} Guests</span>
-                                                  {(stay.numberOfChildren > 0) && <span className="flex items-center gap-1 text-rose-500 font-bold"><Users size={12} className="text-rose-400"/> {stay.numberOfChildren} Children</span>}
+                                                   {(stay.numberOfChildren > 0) && <span className="flex items-center gap-1 text-rose-500 font-bold"><Users size={12} className="text-rose-400"/> {stay.numberOfChildren} Children</span>}
                                              </div>
                                              
                                              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
@@ -1178,12 +1192,12 @@ const Customers = () => {
                                              
                                              <div className="flex gap-2 mb-3">
                                                 {stay.registrationNumber && (
-                                                   <span className="inline-block px-2 py-1 bg-gray-100 rounded text-[10px] font-bold text-gray-600 border border-gray-200">
+                                                   <span className="inline-block px-2 py-1 bg-gray-100 rounded text-xs font-bold text-gray-600 border border-gray-200">
                                                       Reg: {stay.registrationNumber}
                                                    </span>
                                                 )}
                                                 {stay.externalBookingId && (
-                                                   <span className="inline-block px-2 py-1 bg-indigo-50 rounded text-[10px] font-bold text-indigo-600 border border-indigo-100">
+                                                   <span className="inline-block px-2 py-1 bg-indigo-50 rounded text-xs font-bold text-indigo-600 border border-indigo-100">
                                                       ID: {stay.externalBookingId}
                                                    </span>
                                                 )}
@@ -1276,3 +1290,4 @@ const Customers = () => {
 };
 
 export default Customers;
+

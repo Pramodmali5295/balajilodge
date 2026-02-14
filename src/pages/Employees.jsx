@@ -709,7 +709,7 @@ const Employees = () => {
                                         onFocus={() => setJoiningDateFocused(true)}
                                         onBlur={() => setJoiningDateFocused(false)}
                                         className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition-all" 
-                                        placeholder="Select Joining Date"
+                                        onClick={(e) => e.target.showPicker?.()} placeholder="Select Joining Date"
                                         required 
                                      />
                                   </div>
