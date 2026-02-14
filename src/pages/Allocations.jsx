@@ -2392,6 +2392,18 @@ const Allocations = () => {
                               <p className="text-[10px] text-gray-400 font-bold uppercase">Booking ID</p>
                               <p className="text-xs font-bold text-gray-800 truncate">{viewingAllocation.externalBookingId || '---'}</p>
                            </div>
+                           <div className="bg-rose-50 p-1.5 rounded-lg border border-rose-100 flex flex-col justify-center">
+                              <p className="text-[9px] text-rose-600 font-black uppercase leading-none mb-1">Remaining</p>
+                              <p className="text-sm font-black text-rose-600 leading-none">
+                                 ₹{(Number(viewingAllocation.remainingAmount) || (
+                                    (() => {
+                                       const total = Number(viewingAllocation.price || 0);
+                                       const paid = Number(viewingAllocation.advanceAmount || 0);
+                                       return Math.max(0, Math.round(total - paid));
+                                    })()
+                                 )).toLocaleString('en-IN')}
+                              </p>
+                           </div>
                         </div>
                      </div>
                      
@@ -2428,22 +2440,24 @@ const Allocations = () => {
                                     <td className="px-4 py-2 text-right font-bold text-indigo-600">{viewingAllocation.paymentType || 'Cash'}</td>
                                 </tr>
                                 <tr className="bg-gray-50/50">
-                                    <td className="px-4 py-2 font-black text-gray-800">Balance Due</td>
-                                    <td className="px-4 py-2 text-right font-black text-base text-rose-600">
-                                       ₹{(() => {
-                                          const gstRate = Number(viewingAllocation.gstRate || 0);
-                                          const selections = viewingAllocation.roomSelections || [{ 
-                                              basePrice: viewingAllocation.basePrice, 
-                                              stayDuration: viewingAllocation.stayDuration 
-                                          }];
-                                          const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
-                                          const otherCharges = Number(viewingAllocation.otherCharges || 0);
-                                          const total = Math.round((totalBase * (1 + gstRate/100)) + otherCharges) || Number(viewingAllocation.price || 0);
-                                          const paid = Number(viewingAllocation.advanceAmount || 0);
-                                          const pending = total - paid;
-                                          return Math.max(0, Math.round(pending)).toLocaleString('en-IN');
-                                       })()}
-                                    </td>
+                                   <td className="px-4 py-2 font-black text-gray-800">Remaining Amount</td>
+                                   <td className="px-4 py-2 text-right font-black text-base text-rose-600">
+                                      ₹{(Number(viewingAllocation.remainingAmount) || (
+                                         (() => {
+                                            const gstRate = Number(viewingAllocation.gstRate || 0);
+                                            const selections = viewingAllocation.roomSelections || [{ 
+                                                basePrice: viewingAllocation.basePrice, 
+                                                stayDuration: viewingAllocation.stayDuration 
+                                            }];
+                                            const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
+                                            const otherCharges = Number(viewingAllocation.otherCharges || 0);
+                                            const total = Math.round((totalBase * (1 + gstRate/100)) + otherCharges) || Number(viewingAllocation.price || 0);
+                                            const paid = Number(viewingAllocation.advanceAmount || 0);
+                                            const pending = total - paid;
+                                            return Math.max(0, Math.round(pending));
+                                         })()
+                                      )).toLocaleString('en-IN')}
+                                   </td>
                                 </tr>
                             </tbody>
                         </table>

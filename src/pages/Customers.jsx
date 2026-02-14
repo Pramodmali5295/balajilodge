@@ -999,6 +999,7 @@ const Customers = () => {
                                  let totalOtherAmount = 0;
                                  let totalGst = 0;
                                  let grandTotal = 0;
+                                 let totalPaid = 0;
 
                                  stays.forEach(stay => {
                                      // 1. Calculate Room Amount
@@ -1029,7 +1030,10 @@ const Customers = () => {
                                      totalOtherAmount += stayOther;
                                      totalGst += stayGst;
                                      grandTotal += stayTotal;
+                                     totalPaid += (Number(stay.advanceAmount) || 0);
                                  });
+
+                                 const totalBalance = Math.max(0, Math.round(grandTotal - totalPaid));
 
                                  return (
                                      <div className="flex flex-col gap-0.5">
@@ -1045,10 +1049,20 @@ const Customers = () => {
                                              <span>GST:</span>
                                              <span>₹{totalGst.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
                                          </div>
-                                         <div className="flex justify-between items-baseline pt-1 mt-1 border-t border-gray-100">
-                                             <span className="text-xs font-bold text-gray-700 uppercase">Total:</span>
-                                             <span className="text-xl font-black text-emerald-600">₹{grandTotal.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                         <div className="flex justify-between items-baseline text-xs font-medium text-emerald-600">
+                                             <span>Total Paid:</span>
+                                             <span>₹{totalPaid.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
                                          </div>
+                                         <div className="flex justify-between items-baseline pt-1 mt-1 border-t border-gray-100">
+                                             <span className="text-xs font-bold text-gray-700 uppercase">Total Bill:</span>
+                                             <span className="text-xl font-black text-gray-900">₹{grandTotal.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                         </div>
+                                         {totalBalance > 0 && (
+                                            <div className="flex justify-between items-baseline mt-1 bg-rose-50 p-2 rounded-lg border border-rose-100">
+                                                <span className="text-xs font-black text-rose-600 uppercase">Total Balance Due:</span>
+                                                <span className="text-xl font-black text-rose-600">₹{totalBalance.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                                            </div>
+                                         )}
                                      </div>
                                  );
                               })()}
