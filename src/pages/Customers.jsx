@@ -93,14 +93,11 @@ const Customers = () => {
       c.phone?.includes(searchTerm)
     );
 
-    // Filter: Only Checked-Out and Fully Paid
+    // Filter: Show all entries including not fully paid or not checked out
     list = list.filter(c => {
        const cAllocations = allocations.filter(a => String(a.customerId) === String(c.id));
-       // If active stay exists, exclude
        const hasActive = cAllocations.some(a => a.status === 'Active' || !a.status);
-       if (hasActive) return false;
        
-       // If pending dues exist, exclude
        const totalPending = cAllocations.reduce((sum, alloc) => {
             const gst = Number(alloc.gstRate || 0);
             const sels = alloc.roomSelections || [{basePrice: alloc.basePrice, stayDuration: alloc.stayDuration}];
@@ -110,7 +107,10 @@ const Customers = () => {
             return sum + (val - paid);
        }, 0);
        
-       return Math.round(totalPending) <= 0;
+       // Show if not fully paid or not checked out (or actually show everyone as requested by 'showing' them)
+       // The user said they want to see them specifically, so we make sure they are included.
+       // We'll show all customers now to ensure everyone is visible.
+       return true; 
     });
 
    // Apply Date Filter

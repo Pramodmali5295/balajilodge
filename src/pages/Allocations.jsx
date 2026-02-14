@@ -351,7 +351,7 @@ const Allocations = () => {
 
       const matchesTab = statusTab === 'Live' 
         ? (alloc.status === 'Active' || alloc.status === undefined || alloc.status === null || alloc.status === '') 
-        : (alloc.status === 'Checked-Out' && (location.pathname.includes('completed') ? true : pending > 0));
+        : (location.pathname.includes('completed') ? (Math.round(pending) > 0 || alloc.status !== 'Checked-Out') : (alloc.status === 'Checked-Out' && Math.round(pending) > 0));
       
 
       
