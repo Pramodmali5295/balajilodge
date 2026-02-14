@@ -723,8 +723,7 @@ const Allocations = () => {
       const advanceVal = parseFloat(formData.advanceAmount || 0);
       const remainingVal = Math.round(finalPrice - advanceVal);
 
-      const checkInDate = new Date(formData.checkIn);
-      const checkOutDate = new Date(formData.checkOut);
+      // checkIn/checkOut Date objects are available via formData when needed
 
       if (editingAllocation) {
           // Update Existing Group Allocation
