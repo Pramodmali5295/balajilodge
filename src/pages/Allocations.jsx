@@ -399,7 +399,7 @@ const Allocations = () => {
       const dateB = new Date(b.checkIn || 0).getTime();
       return dateB - dateA;
     });
-  }, [allocations, allocationSearch, statusTab, dateRange.start, dateRange.end, getCustomerName, getRoomNumber, getCustomerPhone]);
+  }, [allocations, allocationSearch, statusTab, dateRange.start, dateRange.end, getCustomerName, getRoomNumber, getCustomerPhone, location.pathname]);
 
   // --- Handlers ---
   const handleChange = (e) => {
