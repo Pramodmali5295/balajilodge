@@ -95,21 +95,7 @@ const Customers = () => {
 
     // Filter: Show all entries including not fully paid or not checked out
     list = list.filter(c => {
-       const cAllocations = allocations.filter(a => String(a.customerId) === String(c.id));
-       const hasActive = cAllocations.some(a => a.status === 'Active' || !a.status);
-       
-       const totalPending = cAllocations.reduce((sum, alloc) => {
-            const gst = Number(alloc.gstRate || 0);
-            const sels = alloc.roomSelections || [{basePrice: alloc.basePrice, stayDuration: alloc.stayDuration}];
-            const totalBase = sels.reduce((s, sel) => s + ((Number(sel.basePrice)||0) * (Number(sel.stayDuration)||1)), 0);
-            const val = totalBase * (1 + gst/100);
-            const paid = Number(alloc.advanceAmount || 0);
-            return sum + (val - paid);
-       }, 0);
-       
-       // Show if not fully paid or not checked out (or actually show everyone as requested by 'showing' them)
-       // The user said they want to see them specifically, so we make sure they are included.
-       // We'll show all customers now to ensure everyone is visible.
+       // Show all customers regardless of payment status
        return true; 
     });
 
