@@ -28,6 +28,7 @@ const formatBillDate = (dateStr) => {
 
 // --- Number to Words Helper (Indian Format) ---
 const numberToWords = (num) => {
+   const roundedNum = Math.round(num);
    const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
    
@@ -41,13 +42,8 @@ const numberToWords = (num) => {
       return g(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + g(n % 10000000) : '');
    };
 
-   const whole = Math.floor(num);
-   const fraction = Math.round((num - whole) * 100);
-   let str = g(whole);
+   let str = g(roundedNum);
    if (str) str += ' Rupees';
-   if (fraction > 0) {
-      str += (str ? ' and ' : '') + g(fraction) + ' Paise';
-   }
    return (str || 'Zero') + ' Only';
 };
 
@@ -348,13 +344,14 @@ const Allocations = () => {
           stayDuration: alloc.stayDuration 
       }];
       const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
-      const total = totalBase * (1 + gstRate/100);
+      const otherCharges = Number(alloc.otherCharges || 0);
+      const total = Math.round((totalBase * (1 + gstRate/100)) + otherCharges) || Number(alloc.price || 0);
       const paid = Number(alloc.advanceAmount || 0);
-      const pending = Math.max(0, Math.round(total - paid));
+      const pending = Math.max(0, total - paid);
 
       const matchesTab = statusTab === 'Live' 
         ? (alloc.status === 'Active' || alloc.status === undefined || alloc.status === null || alloc.status === '') 
-        : (alloc.status === 'Checked-Out' && pending > 0);
+        : (alloc.status === 'Checked-Out' && (location.pathname.includes('completed') ? true : pending > 0));
       
 
       
@@ -710,9 +707,9 @@ const Allocations = () => {
       });
 
       const otherChargesVal = parseFloat(formData.otherCharges) || 0;
-      const finalPrice = (totalBasePrice * (1 + (gstRate / 100))) + otherChargesVal;
+      const finalPrice = Math.round((totalBasePrice * (1 + (gstRate / 100))) + otherChargesVal);
       const advanceVal = parseFloat(formData.advanceAmount || 0);
-      const remainingVal = finalPrice - advanceVal;
+      const remainingVal = Math.round(finalPrice - advanceVal);
 
       const checkInDate = new Date(formData.checkIn);
       const checkOutDate = new Date(checkInDate.getTime() + maxDuration * 24 * 60 * 60 * 1000);
@@ -979,9 +976,10 @@ const Allocations = () => {
      });
 
      const otherCharges = parseFloat(allocation.otherCharges) || 0;
-     const totalInclusivePrice = taxableValue + totalTax + otherCharges;
-     const cgstAmount = totalTax / 2;
-     const sgstAmount = totalTax / 2;
+     const totalTaxRounded = Math.round(totalTax);
+     const totalInclusivePriceRounded = Math.round(taxableValue + totalTax + otherCharges);
+     const cgstAmountRounded = totalTaxRounded / 2;
+     const sgstAmountRounded = totalTaxRounded / 2;
 
       let invoiceNumber = allocation.invoiceNumber;
      if (!invoiceNumber) {
@@ -1035,7 +1033,7 @@ const Allocations = () => {
                  allocationId: allocation.id,
                  customerId: allocation.customerId,
                  customerName: cust?.name || 'Guest',
-                 amount: totalInclusivePrice,
+                 amount: totalInclusivePriceRounded,
                  createdAt: new Date().toISOString()
               });
               await updateDoc(doc(db, "allocations", allocation.id), { invoiceNumber: invoiceNumber });
@@ -1186,22 +1184,22 @@ const Allocations = () => {
                     </tr>
                     <tr style="height: 24px;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${sgstAmount.toFixed(2)}</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${cgstAmountRounded.toFixed(2)}</td>
                     </tr>
                     <tr style="height: 24px;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${cgstAmount.toFixed(2)}</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${sgstAmountRounded.toFixed(2)}</td>
                     </tr>
                     <tr style="height: 24px; font-weight: bold;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${totalInclusivePrice.toFixed(2)}</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${totalInclusivePriceRounded.toFixed(2)}</td>
                     </tr>
                   </table>
                 </div>
               </div>
 
               <div style="margin-top: 15px; margin-bottom: 20px;">
-                <div style="margin-bottom: 5px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePrice)}</div>
+                <div style="margin-bottom: 5px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePriceRounded)}</div>
                 <div><strong>Narration :</strong> ${allocation.narration || allocation.paymentType || '---'}</div>
               </div>
 
@@ -1240,17 +1238,17 @@ const Allocations = () => {
                    <td colspan="2" class="text-center">Total</td>
                    <td class="text-center">${taxableValue.toFixed(2)}</td>
                    <td></td>
-                   <td class="text-center">${cgstAmount.toFixed(2)}</td>
+                   <td class="text-center">${cgstAmountRounded.toFixed(2)}</td>
                    <td></td>
-                   <td class="text-center">${sgstAmount.toFixed(2)}</td>
-                   <td class="text-center">${totalTax.toFixed(2)}</td>
+                   <td class="text-center">${sgstAmountRounded.toFixed(2)}</td>
+                   <td class="text-center">${totalTaxRounded.toFixed(2)}</td>
                  </tr>
                </tbody>
              </table>
              
-             <div style="margin-bottom: 20px;"><strong>Tax Amount (In Words):</strong> ${numberToWords(totalTax).replace('Rupees', 'Rupees')}</div>
+             <div style="margin-bottom: 20px;"><strong>Tax Amount (In Words):</strong> ${numberToWords(totalTaxRounded)}</div>
 
-             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePrice.toFixed(2)} ${allocation.paymentType}</span></div>
+             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePriceRounded.toFixed(2)} ${allocation.paymentType}</span></div>
 
              <div class="sig-area">
                <div class="sig-box">
@@ -1583,12 +1581,12 @@ const Allocations = () => {
                                   basePrice: alloc.basePrice, 
                                   stayDuration: alloc.stayDuration 
                               }];
-                              const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
-                              const otherCharges = Number(alloc.otherCharges || 0);
-                              const total = (totalBase * (1 + gstRate/100)) + otherCharges;
-                              const paid = Number(alloc.advanceAmount || 0);
-                              const pending = total - paid;
-                              return Math.max(0, Math.round(pending)).toLocaleString('en-IN');
+                               const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
+                               const otherCharges = Number(alloc.otherCharges || 0);
+                               const total = Math.round((totalBase * (1 + gstRate/100)) + otherCharges) || Number(alloc.price || 0);
+                               const paid = Number(alloc.advanceAmount || 0);
+                               const pending = total - paid;
+                               return Math.max(0, Math.round(pending)).toLocaleString('en-IN');
                            })()}
                         </span>
                      </td>
@@ -2416,7 +2414,7 @@ const Allocations = () => {
                                           }];
                                           const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
                                           const otherCharges = Number(viewingAllocation.otherCharges || 0);
-                                          const total = (totalBase * (1 + gstRate/100)) + otherCharges;
+                                          const total = Math.round((totalBase * (1 + gstRate/100)) + otherCharges) || Number(viewingAllocation.price || 0);
                                           return total.toLocaleString('en-IN');
                                        })()}
                                     </td>
@@ -2440,7 +2438,7 @@ const Allocations = () => {
                                           }];
                                           const totalBase = selections.reduce((sum, s) => sum + ((Number(s.basePrice)||0) * (Number(s.stayDuration)||1)), 0);
                                           const otherCharges = Number(viewingAllocation.otherCharges || 0);
-                                          const total = (totalBase * (1 + gstRate/100)) + otherCharges;
+                                          const total = Math.round((totalBase * (1 + gstRate/100)) + otherCharges) || Number(viewingAllocation.price || 0);
                                           const paid = Number(viewingAllocation.advanceAmount || 0);
                                           const pending = total - paid;
                                           return Math.max(0, Math.round(pending)).toLocaleString('en-IN');

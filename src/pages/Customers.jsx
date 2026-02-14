@@ -30,28 +30,24 @@ const Customers = () => {
 
   // --- Number to Words Helper (Indian Format) ---
   const numberToWords = (num) => {
-     const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-     const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-     
-     const g = (n) => {
-        if (n === 0) return '';
-        if (n < 20) return a[n];
-        if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
-        if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + g(n % 100) : '');
-        if (n < 100000) return g(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + g(n % 1000) : '');
-        if (n < 10000000) return g(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + g(n % 100000) : '');
-        return g(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + g(n % 10000000) : '');
-     };
+   const roundedNum = Math.round(num);
+   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+   
+   const g = (n) => {
+      if (n === 0) return '';
+      if (n < 20) return a[n];
+      if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
+      if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + g(n % 100) : '');
+      if (n < 100000) return g(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + g(n % 1000) : '');
+      if (n < 10000000) return g(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + g(n % 100000) : '');
+      return g(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + g(n % 10000000) : '');
+   };
 
-     const whole = Math.floor(num);
-     const fraction = Math.round((num - whole) * 100);
-     let str = g(whole);
-     if (str) str += ' Rupees';
-     if (fraction > 0) {
-        str += (str ? ' and ' : '') + g(fraction) + ' Paise';
-     }
-     return (str || 'Zero') + ' Only';
-  };
+   let str = g(roundedNum);
+   if (str) str += ' Rupees';
+   return (str || 'Zero') + ' Only';
+};
     
   const getRoomNumber = (roomId) => {
      const r = rooms.find(rm => String(rm.id) === String(roomId));
@@ -406,9 +402,10 @@ const Customers = () => {
      });
 
      const otherCharges = parseFloat(allocation.otherCharges) || 0;
-     const totalInclusivePrice = taxableValue + totalTax + otherCharges;
-     const cgstAmount = totalTax / 2;
-     const sgstAmount = totalTax / 2;
+     const totalTaxRounded = Math.round(totalTax);
+     const totalInclusivePriceRounded = Math.round(taxableValue + totalTax + otherCharges);
+     const cgstAmountRounded = totalTaxRounded / 2;
+     const sgstAmountRounded = totalTaxRounded / 2;
 
      let invoiceNumber = allocation.invoiceNumber;
      
@@ -460,8 +457,8 @@ const Customers = () => {
                  allocationId: allocation.id,
                  customerId: allocation.customerId,
                  customerName: cust?.name || 'Guest',
-                 amount: totalInclusivePrice,
-                 createdAt: new Date().toISOString()
+                  amount: totalInclusivePriceRounded,
+                  createdAt: new Date().toISOString()
               });
               await updateDoc(doc(db, "allocations", allocation.id), { invoiceNumber: invoiceNumber });
               
@@ -612,22 +609,22 @@ const Customers = () => {
                     </tr>
                     <tr style="height: 24px;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${sgstAmount.toFixed(2)}</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${cgstAmountRounded.toFixed(2)}</td>
                     </tr>
                     <tr style="height: 24px;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${cgstAmount.toFixed(2)}</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${sgstAmountRounded.toFixed(2)}</td>
                     </tr>
                     <tr style="height: 24px; font-weight: bold;">
                       <td style="border: 1px solid #000; padding: 0 8px; text-align: center;">Rs.</td>
-                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${totalInclusivePrice.toFixed(2)}</td>
+                      <td style="border: 1px solid #000; padding: 0 8px; text-align: right;">${totalInclusivePriceRounded.toFixed(2)}</td>
                     </tr>
                   </table>
                 </div>
               </div>
 
               <div style="margin-top: 15px; margin-bottom: 20px;">
-                <div style="margin-bottom: 5px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePrice)}</div>
+                <div style="margin-bottom: 5px;"><strong>In Words:</strong> ${numberToWords(totalInclusivePriceRounded)}</div>
                 <div><strong>Narration :</strong> ${allocation.narration || allocation.paymentType || '---'}</div>
               </div>
 
@@ -666,17 +663,17 @@ const Customers = () => {
                    <td colspan="2" class="text-center">Total</td>
                    <td class="text-center">${taxableValue.toFixed(2)}</td>
                    <td></td>
-                   <td class="text-center">${cgstAmount.toFixed(2)}</td>
+                   <td class="text-center">${cgstAmountRounded.toFixed(2)}</td>
                    <td></td>
-                   <td class="text-center">${sgstAmount.toFixed(2)}</td>
-                   <td class="text-center">${totalTax.toFixed(2)}</td>
+                   <td class="text-center">${sgstAmountRounded.toFixed(2)}</td>
+                   <td class="text-center">${totalTaxRounded.toFixed(2)}</td>
                  </tr>
                </tbody>
              </table>
              
-             <div style="margin-bottom: 20px;"><strong>Tax Amount (In Words):</strong> ${numberToWords(totalTax)}</div>
+             <div style="margin-bottom: 20px;"><strong>Tax Amount (In Words):</strong> ${numberToWords(totalTaxRounded)}</div>
 
-             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePrice.toFixed(2)} ${allocation.paymentType}</span></div>
+             <div class="info-row"><span class="info-label" style="width: 80px;">Pay Details :</span> <span class="info-value" style="font-weight:bold; font-size: 14px; text-decoration: underline;">₹${totalInclusivePriceRounded.toFixed(2)} ${allocation.paymentType}</span></div>
 
              <div class="sig-area">
                <div class="sig-box">
@@ -1040,7 +1037,7 @@ const Customers = () => {
                                      const stayGst = stayRoomAmount * (rate / 100);
 
                                      // 4. Stay Total
-                                     const stayTotal = stayRoomAmount + stayOther + stayGst;
+                                     const stayTotal = (stayRoomAmount + stayOther + stayGst) || Number(stay.price || 0);
 
                                      totalRoomAmount += stayRoomAmount;
                                      totalOtherAmount += stayOther;
@@ -1169,7 +1166,12 @@ const Customers = () => {
                                                     <span className="text-[10px] text-gray-400 uppercase font-bold block">Check Out</span>
                                                     <span className="font-bold text-gray-800">{(() => {
                                                        const d = stay.actualCheckOut ? new Date(stay.actualCheckOut) : new Date(stay.checkOut);
-                                                     return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(d.getHours() % 12 || 12).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+                                                       let hrs = d.getHours();
+                                                       const mins = String(d.getMinutes()).padStart(2, '0');
+                                                       const ampm = hrs >= 12 ? 'PM' : 'AM';
+                                                       hrs = hrs % 12;
+                                                       hrs = hrs ? hrs : 12;
+                                                       return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()} ${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
                                                     })()}</span>
                                                  </div>
                                              </div>
@@ -1212,7 +1214,8 @@ const Customers = () => {
                                                         const stayGst = stayRoomAmount * (rate / 100);
 
                                                         // 4. Stay Total
-                                                        const stayTotal = stayRoomAmount + stayOther + stayGst;
+                                                        const stayTotal = (stayRoomAmount + stayOther + stayGst) || Number(stay.price || 0);
+                                                        const balanceDue = Math.max(0, Math.round(stayTotal - (Number(stay.advanceAmount) || 0)));
 
                                                         return (
                                                             <>
@@ -1226,6 +1229,11 @@ const Customers = () => {
                                                                 </div>
                                                                 <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
                                                                     <span>Paid: <span className="font-bold text-emerald-600">₹{(Number(stay.advanceAmount)||0).toLocaleString('en-IN')}</span></span>
+                                                                    {balanceDue > 0 && (
+                                                                       <span className="bg-rose-50 px-2 py-0.5 rounded text-[10px] font-black text-rose-600 border border-rose-100">
+                                                                          Due: ₹{balanceDue.toLocaleString('en-IN')}
+                                                                       </span>
+                                                                    )}
                                                                 </div>
                                                             </>
                                                         );

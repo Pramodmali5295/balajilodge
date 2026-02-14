@@ -270,8 +270,8 @@ const Dashboard = () => {
               <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Collected Amount</span>
             </div>
             <div className="flex flex-col">
-              <h3 className="text-xl font-black text-white">₹{dailyReport.revenue.toLocaleString('en-IN')}</h3>
-              <p className="text-[9px] font-bold text-white/50 mt-0.5">of ₹{dailyReport.totalBilling.toLocaleString('en-IN')}</p>
+              <h3 className="text-xl font-black text-white">₹{Math.round(dailyReport.revenue).toLocaleString('en-IN')}</h3>
+              <p className="text-[9px] font-bold text-white/50 mt-0.5">of ₹{Math.round(dailyReport.totalBilling).toLocaleString('en-IN')}</p>
             </div>
           </div>
 
@@ -315,7 +315,7 @@ const Dashboard = () => {
                     <p className="text-[9px] font-bold text-white/60 uppercase tracking-wide mb-0.5">
                       {type === 'Pending' ? 'Pending Collection' : type}
                     </p>
-                    <p className="text-base font-black text-white">₹{amount.toLocaleString('en-IN')}</p>
+                    <p className="text-base font-black text-white">₹{Math.round(amount).toLocaleString('en-IN')}</p>
                   </div>
                 ))}
               </div>
